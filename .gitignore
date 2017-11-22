@@ -1,0 +1,11 @@
+bin-*
+elpa
+helpa
+snippets
+config.el
+secret.el
+elfeed.org
+eshell
+eww-bookmarks
+url
+transient
