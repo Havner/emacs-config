@@ -1,0 +1,16 @@
+*.elc
+.cache
+config.el
+eln-cache
+elpa
+emojis
+eshell
+eww-bookmarks
+helpa
+parinfer-rust
+secret.el
+snippets
+sokoban-state
+transient/history.el
+tramp
+url
