@@ -1,0 +1,2130 @@
+#+TITLE: Havner's Emacs configuration
+
+* Prelude
+** Configurability
+#+begin_src emacs-lisp
+(defun +open-config-org (&optional arg)
+  (interactive "P")
+  (let ((config "~/.emacs.d/config.org"))
+    (if arg
+        (find-file-other-window config)
+      (find-file config))))
+(global-set-key (kbd "<f12>") #'+open-config-org)
+
+(defun +set-ubuntu-font-size (&optional arg)
+  (interactive "NFont size: ")
+  (let ((font-to-set (concat "Ubuntu Mono-" (number-to-string arg))))
+    (set-face-attribute 'default nil :font font-to-set)))
+(global-set-key (kbd "M-<f12>") #'+set-ubuntu-font-size)
+
+(defun +set-font-size (&optional arg)
+  (interactive "NFont size: ")
+  (set-face-attribute 'default nil :height (* arg 10)))
+(global-set-key (kbd "C-<f12>") #'+set-font-size)
+#+end_src
+
+** Mac / OSX bootstrap
+#+begin_src emacs-lisp
+;;; get rid of the travesty set in term/ns-win
+(when (eq window-system 'ns)
+  (define-key global-map [home] 'move-beginning-of-line)
+  (define-key global-map [end]  'move-end-of-line))
+
+;;; unify mac distributions with other OS'es
+(pcase window-system
+  ('mac
+   (setq mac-option-modifier '(:function super :mouse super))
+   (setq mac-command-modifier 'meta))
+  ('ns
+   (setq ns-option-modifier '(:function super :mouse super))
+   (setq ns-command-modifier 'meta)))
+
+;;; Handle mac keyboard without insert
+;;; <help> -> insert on regular PC keyboard
+;;; <f13> -> above "insert" on full mac keyboard
+;;; <clear> -> on numpad on full mac keyboard
+(when (or (eq window-system 'mac)
+          (eq window-system 'ns))
+  (define-key function-key-map (kbd "<help>") (kbd "<insert>"))
+  (global-set-key (kbd "<S-help>") #'yank)
+  (global-set-key (kbd "<C-help>") #'kill-ring-save)
+  (define-key function-key-map (kbd "<f13>") (kbd "<insert>"))
+  (global-set-key (kbd "<S-f13>") #'yank)
+  (global-set-key (kbd "<C-f13>") #'kill-ring-save)
+  (define-key function-key-map (kbd "<clear>") (kbd "<insert>"))
+  (global-set-key (kbd "<S-clear>") #'yank)
+  (global-set-key (kbd "<C-clear>") #'kill-ring-save)
+  (with-eval-after-load 'term
+    (define-key term-raw-map (kbd "<help>") #'term-send-insert)
+    (define-key term-raw-map (kbd "<S-help>") #'term-paste)
+    (define-key term-raw-map (kbd "<f13>") #'term-send-insert)
+    (define-key term-raw-map (kbd "<S-f13>") #'term-paste)
+    (define-key term-raw-map (kbd "<clear>") #'term-send-insert)
+    (define-key term-raw-map (kbd "<S-clear>") #'term-paste)))
+
+(defun +mac-browse-url-open (url &optional ignored)
+  "Pass the specified URL to the \"open\" command.
+open is a OSX desktop utility that calls your preferred web browser.
+The optional argument IGNORED is not used."
+  (interactive (browse-url-interactive-arg "URL: "))
+  (call-process "open" nil 0 nil url))
+
+(defun +mac-toggle-frame-fullscreen ()
+  "Toggle fullscreen state of selected frame."
+  (interactive)
+  (let ((fullscreen (frame-parameter nil 'fullscreen)))
+    (if (memq fullscreen '(fullscreen fullboth))
+        (let ((fullscreen-restore (frame-parameter nil 'fullscreen-restore)))
+          (if (memq fullscreen-restore '(maximized fullheight fullwidth))
+              (set-frame-parameter nil 'fullscreen fullscreen-restore)
+            (set-frame-parameter nil 'fullscreen nil)))
+      (set-frame-parameter nil `fullscreen 'fullscreen))))
+
+;;; Use the F11 as the true macos fullscreen
+(when (or (eq window-system 'mac)
+          (eq window-system 'ns))
+  (global-set-key (kbd "<f11>") #'+mac-toggle-frame-fullscreen))
+#+end_src
+
+** Elisp
+#+begin_src emacs-lisp
+(defun +add-to-list-global (list elem &optional app)
+  (if app
+      (set-default list (append (eval list) `(,elem)))
+    (set-default list (append `(,elem) (eval list)))))
+
+(defun +delete-from-list (list elem)
+  (set list (delete elem (eval list))))
+#+end_src
+
+** Packages
+#+begin_src emacs-lisp
+(let ((dirs '("~/.emacs.d/helpa/zenburn-emacs"
+              "~/.emacs.d/helpa/spacemacs-theme")))
+  (dolist (dir dirs)
+    (when (file-directory-p dir)
+      (add-to-list 'load-path dir))))
+#+end_src
+
+** To be used directly (interactive)
+#+begin_src emacs-lisp
+(defun +kill-buffers-prefix (arg)
+  (interactive "MPrefix: ")
+  (let ((buffers (buffer-list)))
+    (while buffers
+      (let ((buffer (car buffers)))
+        (if (string-prefix-p arg (buffer-name buffer) t)
+            (kill-buffer buffer)))
+      (setq buffers (cdr buffers)))))
+
+(defun +kill-buffers-magit ()
+  (interactive)
+  (+kill-buffers-prefix "magit"))
+
+(defun +sudo-file-path (file)
+  (concat "/sudo::" (expand-file-name file)))
+
+(defun +sudo-find-file (file)
+  (interactive "FOpen file as root")
+  (find-file (+sudo-file-path file)))
+
+(defun +sudo-this-file ()
+  (interactive)
+  (let ((file-name (buffer-file-name)))
+    (if file-name
+        (find-alternate-file (concat "/sudo::" file-name))
+      (message "Current buffer not a file"))))
+
+(defvar +lang-ring
+  "List of languages the `+cycle-ispell-languages' will cycle through.")
+(let ((langs '("polish" "english")))
+  (setq +lang-ring (make-ring (length langs)))
+  (dolist (elem langs) (ring-insert +lang-ring elem))
+  (ispell-change-dictionary (ring-ref +lang-ring -1)))
+
+(defun +cycle-ispell-languages ()
+  "Cycle currently used Ispell language from `+lang-ring'."
+  (interactive)
+  (let ((lang (ring-ref +lang-ring -1)))
+    (ring-insert +lang-ring lang)
+    (ispell-change-dictionary lang)))
+
+(defun +display-prefix (arg)
+  "Display the value of the raw prefix ARG."
+  (interactive "P")
+  (message "%s" arg))
+
+(defun +de-unicode ()
+  "Tidy up a buffer by replacing all special Unicode characters.
+Replaces things like smart quotes with their more sane cousins."
+  (interactive)
+  (let ((unicode-map '(("[\u2018\|\u2019\|\u201A\|\uFFFD]" . "'")
+                       ("[\u201c\|\u201d\|\u201e]" . "\"")
+                       ("\u2013" . "--")
+                       ("\u2014" . "---")
+                       ("\u2026" . "...")
+                       ("\u00A9" . "(c)")
+                       ("\u00AE" . "(r)")
+                       ("\u2122" . "TM")
+                       ("[\u02DC\|\u00A0]" . " "))))
+    (save-excursion
+      (cl-loop for (key . value) in unicode-map
+               do
+               (goto-char (point-min))
+               (replace-regexp key value)))))
+
+(defun +eval-and-replace ()
+  "Replace the preceding sexp with its value."
+  (interactive)
+  (backward-kill-sexp)
+  (condition-case nil
+      (prin1 (eval (read (current-kill 0)))
+             (current-buffer))
+    (error (message "Invalid expression")
+           (insert (current-kill 0)))))
+
+(defun +scroll-right-small ()
+  (interactive)
+  (scroll-left 5))
+
+(defun +scroll-left-small ()
+  (interactive)
+  (scroll-right 5))
+
+(defun +create-scratch-buffer ()
+  (with-current-buffer (get-buffer-create "*scratch*")
+    (set-buffer-major-mode (current-buffer))
+    (when (and (zerop (buffer-size))
+               initial-scratch-message)
+      (insert (substitute-command-keys initial-scratch-message))
+      (set-buffer-modified-p nil))
+    (current-buffer)))
+
+(defun +switch-to-scratch ()
+  (interactive)
+  (let ((buffer (or (get-buffer "*scratch*")
+                    (+create-scratch-buffer))))
+    (switch-to-buffer buffer)))
+#+end_src
+
+** CMD Line
+#+begin_src emacs-lisp
+(defun +command-line-ediff (switch)
+  "EDiff two files from command line"
+  (let ((file1 (pop command-line-args-left))
+        (file2 (pop command-line-args-left)))
+    (ediff file1 file2)))
+(add-to-list 'command-switch-alist '("ediff" . +command-line-ediff))
+
+(defun +command-line-vdiff (switch)
+  "VDiff two files from command line"
+  (let ((file1 (pop command-line-args-left))
+        (file2 (pop command-line-args-left)))
+    (vdiff-files file1 file2)))
+(add-to-list 'command-switch-alist '("vdiff" . +command-line-vdiff))
+#+end_src
+
+** Themes
+#+begin_src emacs-lisp
+(defun +disable-themes ()
+  (interactive)
+  (dolist (theme custom-enabled-themes)
+    (if theme (disable-theme theme))))
+
+(defmacro +def-theme-function (theme desc &optional module &rest body)
+  (let ((fun-name (format "+%s" theme)))
+    `(defun ,(intern fun-name) ()
+       ,desc
+       (interactive)
+       (when ,module
+         (require ,module))
+       (+disable-themes)
+       ,@body
+       (load-theme ',theme t))))
+
+;;;                  THEME-NAME           FUNCTION-DESC          FILE-NAME
+
+(+def-theme-function spacemacs-dark       "Spacemacs Dark"       'spacemacs-common)
+(+def-theme-function spacemacs-light      "Spacemacs Light"      'spacemacs-common)
+
+(+def-theme-function zenburn              "Zenburn"              'zenburn-theme)
+
+(+def-theme-function doom-Iosvkem         "DOOM Iosvkem"         'doom-themes)
+(+def-theme-function doom-badger          "DOOM Badger"          'doom-themes)
+(+def-theme-function doom-city-lights     "DOOM City Lights"     'doom-themes)
+(+def-theme-function doom-challenger-deep "DOOM Challenger Deer" 'doom-themes)
+(+def-theme-function doom-dark+           "DOOM Dark+"           'doom-themes)
+(+def-theme-function doom-dracula         "DOOM Dracula"         'doom-themes)
+(+def-theme-function doom-henna           "DOOM Henna"           'doom-themes)
+(+def-theme-function doom-lantern         "DOOM Lantern"         'doom-themes)
+(+def-theme-function doom-material        "DOOM Material"        'doom-themes)
+(+def-theme-function doom-miramare        "DOOM Miramare"        'doom-themes)
+(+def-theme-function doom-molokai         "DOOM Molokai"         'doom-themes)
+(+def-theme-function doom-monokai-machine "DOOM Monokai Machine" 'doom-themes)
+(+def-theme-function doom-moonlight       "DOOM Moonlight"       'doom-themes)
+(+def-theme-function doom-nord-aurora     "DOOM Nord Aurora"     'doom-themes)
+(+def-theme-function doom-nord-light      "DOOM Nord Light"      'doom-themes)
+(+def-theme-function doom-nord            "DOOM Nord"            'doom-themes)
+(+def-theme-function doom-nova            "DOOM Nova"            'doom-themes)
+(+def-theme-function doom-oceanic-next    "DOOM Oceanic Next"    'doom-themes)
+(+def-theme-function doom-one-light       "DOOM One Light"       'doom-themes)
+(+def-theme-function doom-one             "DOOM One"             'doom-themes)
+(+def-theme-function doom-opera-light     "DOOM Opera Light"     'doom-themes)
+(+def-theme-function doom-opera           "DOOM Opera"           'doom-themes)
+(+def-theme-function doom-outrun-electric "DOOM Outrun Electric" 'doom-themes)
+(+def-theme-function doom-palenight       "DOOM Palenight"       'doom-themes)
+(+def-theme-function doom-sourcerer       "DOOM Sourcerer"       'doom-themes)
+(+def-theme-function doom-spacegrey       "DOOM Spacegrey"       'doom-themes)
+(+def-theme-function doom-vibrant         "DOOM Vibrant"         'doom-themes)
+(+def-theme-function doom-zenburn         "DOOM Zenburn"         'doom-themes)
+#+end_src
+
+** Additional basic window/frame functions
+#+begin_src emacs-lisp
+(defun +kill-current-buffer ()
+  "Kill the current buffer without prompting."
+  (interactive)
+  (kill-buffer (current-buffer)))
+
+(defun +kill-buffer-and-window-and-balance ()
+  "Kill buffer and window and balance"
+  (interactive)
+  (kill-buffer-and-window)
+  (balance-windows))
+
+(defun +delete-window-and-balance ()
+  "Delete current windowKill the current buffer without prompting."
+  (interactive)
+  (delete-window)
+  (balance-windows))
+
+(defun +split-window-below-switch-and-balance ()
+  "Split the window horizontally, then switch to the new pane."
+  (interactive)
+  (split-window-below)
+  (other-window 1)
+  (balance-windows))
+
+(defun +split-window-right-switch-and-balance ()
+  "Split the window vertically, then switch to the new pane."
+  (interactive)
+  (split-window-right)
+  (other-window 1)
+  (balance-windows))
+#+end_src
+
+** switch-window variants
+#+begin_src emacs-lisp
+(autoload 'switch-window--then "switch-window" "" t)
+
+(defun +switch-window-then-kill-current-buffer ()
+  (interactive)
+  (switch-window--then
+   "Buffer to kill: "
+   #'+kill-current-buffer
+   #'+kill-current-buffer t))
+
+(defun +switch-window-then-kill-buffer-and-window-and-balance ()
+  (interactive)
+  (switch-window--then
+   "Window to kill: "
+   #'+kill-buffer-and-window-and-balance
+   #'+kill-buffer-and-window-and-balance t))
+
+(defun +switch-window-then-delete-window-and-balance ()
+  (interactive)
+  (switch-window--then
+   "Delete window: "
+   #'+delete-window-and-balance
+   #'+delete-window-and-balance t))
+
+(defun +switch-window-then-split-below-switch-and-balance (arg)
+  (interactive "P")
+  (switch-window--then
+   "Below-split window: "
+   #'+split-window-below-switch-and-balance
+   #'+split-window-below-switch-and-balance arg 1))
+
+(defun +switch-window-then-split-right-switch-and-balance (arg)
+  (interactive "P")
+  (switch-window--then
+   "Right-split window: "
+   #'+split-window-right-switch-and-balance
+   #'+split-window-right-switch-and-balance arg 1))
+#+end_src
+
+** <escape> terminal hack
+#+begin_src emacs-lisp
+(defun +tty-esc-filter (map)
+  (if (and (equal (this-single-command-keys) [?\e])
+           (sit-for 0.1))
+      [escape] map))
+
+(defun +lookup-key (map key)
+  (catch 'found
+    (map-keymap (lambda (k b) (if (equal key k) (throw 'found b))) map)))
+
+(defun +catch-tty-esc ()
+  "Setup key mappings of current terminal to turn a tty's ESC into `escape'."
+  (when (memq (terminal-live-p (frame-terminal)) '(t pc))
+    (let ((esc-binding (+lookup-key input-decode-map ?\e)))
+      (define-key input-decode-map
+        [?\e] `(menu-item "" ,esc-binding :filter +tty-esc-filter)))))
+
+(+catch-tty-esc)
+#+end_src
+
+** Option to delete trailing whitespace on file save
+#+begin_src emacs-lisp
+(defcustom +delete-trailing-whitespace-on-save nil
+  "Whether to call `delete-trailing-whitespace' on file save."
+  :type 'boolean
+  :group 'havner)
+
+(defun +maybe-delete-trailing-whitespace ()
+  (when (and +delete-trailing-whitespace-on-save
+             (or (derived-mode-p 'prog-mode)
+                 (derived-mode-p 'text-mode)))
+    (delete-trailing-whitespace)))
+
+(with-eval-after-load 'files
+  (add-hook 'before-save-hook #'+maybe-delete-trailing-whitespace))
+#+end_src
+
+** Option to restore EDiff state on exit
+#+begin_src emacs-lisp
+(defcustom +ediff-restore-winconfig-state-on-exit nil
+  "Whether to restore a previous winconfig state after quitting EDiff."
+  :type 'boolean
+  :group 'havner)
+
+(defvar +ediff-last-winconfig nil)
+(defun +ediff-maybe-save-winconfig-state ()
+  (when +ediff-restore-winconfig-state-on-exit
+    (setq +ediff-last-winconfig (current-window-configuration))))
+(defun +ediff-maybe-restore-winconfig-state ()
+  (when +ediff-restore-winconfig-state-on-exit
+    (set-window-configuration +ediff-last-winconfig)))
+
+(with-eval-after-load 'ediff-init
+  (add-hook 'ediff-before-setup-hook #'+ediff-maybe-save-winconfig-state)
+  (add-hook 'ediff-quit-hook #'+ediff-maybe-restore-winconfig-state))
+#+end_src
+
+** Option to replace completion at point with company
+#+begin_src emacs-lisp
+(defcustom +company-replace-completion nil
+  "Whether to use company-complete every time completion-at-point is called."
+  :type 'boolean
+  :group 'havner)
+
+(defun +company-maybe-replace-completion (orig-fun &rest args)
+  (if (or (not +company-replace-completion)
+          (eq (active-minibuffer-window)
+              (selected-window)))
+      (apply orig-fun args)
+    (company-complete)))
+
+(advice-add #'completion-at-point
+            :around #'+company-maybe-replace-completion)
+#+end_src
+
+** Option for magit not to restore window configuration
+#+begin_src emacs-lisp
+(defcustom +magit-dont-restore-window-configuration nil
+  "Whether not to restore windows configuration on magit quit."
+  :type 'boolean
+  :group 'havner)
+
+(defun +magit-maybe-dont-restore-window-configuration (orig-fun &rest args)
+  "Bury or kill the current buffer and DON'T restore previous window configuration."
+  (if +magit-dont-restore-window-configuration
+      (quit-window (car args) (selected-window))
+    (apply orig-fun args)))
+
+(advice-add #'magit-restore-window-configuration
+            :around #'+magit-maybe-dont-restore-window-configuration)
+#+end_src
+
+** Option to show file name in consult-async searches
+#+begin_src emacs-lisp
+(defcustom +consult-async-show-filename nil
+  "Whether to show filename in result lines."
+  :type 'boolean
+  :group 'havner)
+
+(defun +consult-async-grep-group-maybe-show-filename (orig-fun &rest args)
+  (if (and +consult-async-show-filename
+           (nth 1 args))
+      (car args)
+    (apply orig-fun args)))
+
+(advice-add #'consult--grep-group
+            :around #'+consult-async-grep-group-maybe-show-filename)
+#+end_src
+
+** Option to show [CRM] in completing-read-multiple prompt
+#+begin_src emacs-lisp
+(defcustom +crm-indicator nil
+  "Whether to show [CRM] indicator in completing-read-multiple."
+  :type 'boolean
+  :group 'havner)
+
+(defun +crm-maybe-show-indicator (args)
+  (if +crm-indicator
+      (cons (format "[CRM%s] %s"
+                    (replace-regexp-in-string
+                     "\\`\\[.*?]\\*\\|\\[.*?]\\*\\'" ""
+                     crm-separator)
+                    (car args))
+            (cdr args))
+    args))
+
+(advice-add #'completing-read-multiple
+            :filter-args #'+crm-maybe-show-indicator)
+#+end_src
+
+** Option for company to ignore orderless
+#+begin_src emacs-lisp
+(defcustom +company-ignore-orderless nil
+  "Ignore orderless completion-style when using company"
+  :type 'boolean
+  :group 'havner)
+
+(defun +company-capf-maybe-ignore-orderless (fn &rest args)
+  (if +company-ignore-orderless
+      (let ((completion-styles '(basic partial-completion)))
+        (apply fn args))
+    (apply fn args)))
+
+(advice-add #'company-capf--candidates
+            :around #'+company-capf-maybe-ignore-orderless)
+#+end_src
+
+** Option for parinfer-rust to use rainbow-delimiters
+#+begin_src emacs-lisp
+(defcustom +parinfer-rust-use-rainbow-delimiters nil
+  "Whether to use rainbow-delimiters in paren mode."
+  :type 'boolean
+  :group 'havner)
+
+(defun +parinfer-rust-maybe-use-rainbow-delimiters (fun &rest args)
+  (let ((rainbow-disable (and parinfer-rust-enabled
+                              (not (string-equal parinfer-rust--mode "paren"))
+                              parinfer-rust-dim-parens)))
+    (when (and rainbow-disable
+               +parinfer-rust-use-rainbow-delimiters
+               (bound-and-true-p rainbow-delimiters-mode))
+      (rainbow-delimiters-mode-disable))
+    (apply fun args)
+    (when (and (not rainbow-disable)
+               +parinfer-rust-use-rainbow-delimiters
+               (fboundp 'rainbow-delimiters-mode))
+      (rainbow-delimiters-mode-enable))))
+
+(advice-add #'parinfer-rust--dim-parens
+            :around #'+parinfer-rust-maybe-use-rainbow-delimiters)
+#+end_src
+
+** For god-mode
+#+begin_src emacs-lisp
+(defun +god-mode-set-all-buffers (arg)
+  (mapc (lambda (buffer)
+          (with-current-buffer buffer
+            (god-mode-activate arg)))
+        (buffer-list)))
+
+(defun +god-mode-disable ()
+  "Turn off `god-local-mode' in all buffers."
+  (interactive)
+  (setq god-global-mode t)
+  (+god-mode-set-all-buffers 0)
+  (setq god-global-mode 0))
+
+(defun +god-mode-enable ()
+  "Turn on `god-local-mode' in all buffers."
+  (interactive)
+  (setq god-global-mode t)
+  (+god-mode-set-all-buffers t)
+  (setq god-global-mode t))
+
+(defun +god-mode-enable-or-keyboard-quit ()
+  "Turn on `god-local-mode' in all buffers or `keyboard-quit'.
+`keyboard-quit' happens when `god-local-mode' was already on in
+the current buffer, or it's impossible to turn it on."
+  (interactive)
+  (let ((old-status (bound-and-true-p god-local-mode)))
+    (+god-mode-enable)
+    (when (or old-status
+              (not god-local-mode))
+      (keyboard-quit))))
+
+(defun +god-mode-update ()
+  (setq cursor-type (if god-local-mode 'box 'bar))
+  (hl-line-mode (if god-local-mode 0 t))
+  (when (and overwrite-mode god-local-mode)
+    (overwrite-mode 0)))
+(add-hook 'post-command-hook #'+god-mode-update)
+
+;; Additional editing shortcuts
+
+(defun +god-edit-open-line ()
+  "New line and disable god mode."
+  (interactive)
+  (end-of-line)
+  (newline 1 t)
+  (+god-mode-disable))
+
+(defun +god-edit-open-line-prev ()
+  "New line and disable god mode."
+  (interactive)
+  (beginning-of-line)
+  (newline 1 t)
+  (forward-line -1)
+  (+god-mode-disable))
+
+(defun +god-edit-beginning-of-line ()
+  "Beginning of line and disable god mode."
+  (interactive)
+  (beginning-of-line)
+  (+god-mode-disable))
+
+(defun +god-edit-end-of-line ()
+  "End of line and disable god mode."
+  (interactive)
+  (end-of-line)
+  (+god-mode-disable))
+
+(defun +god-edit-change-word (arg)
+  (interactive "p")
+  (kill-word arg)
+  (+god-mode-disable))
+
+(defun +god-edit-match-paren ()
+  (interactive)
+  (cond ((looking-at "\\s(") (forward-list 1))
+        ((looking-back "\\s)" 1) (backward-list 1))))
+#+end_src
+
+** Package god-leader
+#+begin_src emacs-lisp
+(defgroup god-leader nil
+  "Leader key configuration for god-mode."
+  :group 'god)
+
+(defvar god-leader-map (make-sparse-keymap))
+
+(defcustom god-leader-root-key
+  "SPC"
+  "A shortcut for the leader map, has to be `kbd' compatible string"
+  :group 'god-leader
+  :type 'string)
+
+(defcustom god-leader-major-mode-key
+  "q"
+  "A shortcut for the major mode map, has to be `kbd' compatible string"
+  :group 'god-leader
+  :type 'string)
+
+(defcustom god-leader-root-description
+  "<leader>"
+  "A leader root description visible when using `which-key'"
+  :group 'god-leader
+  :type 'string)
+
+(defcustom god-leader-major-mode-description
+  "<major>"
+  "A major mode description visible when using `which-key'"
+  :group 'god-leader
+  :type 'string)
+
+(defcustom god-leader-maps
+  '((special-mode-map . simple)
+    (dired-mode-map . dired)
+    (custom-mode-map . cus-edit)
+    (finder-mode-map . finder)
+    (grep-mode-map . grep)
+    (image-mode-map . image-mode)
+    (vc-dir-mode-map . vc-dir))
+  "List of cons of map/modules or maps to add the leader key."
+  :group 'god-leader
+  :type '(alist))
+
+(defun god-leader--check-god-local (cmd)
+  "Filtering function for the major mode map."
+  (when god-local-mode cmd))
+
+(defun god-leader--check-read-only (cmd)
+  "Filtering function for the read only mode"
+  (if buffer-read-only
+      god-leader-map
+    cmd))
+
+;;; functions to be used
+
+(defun god-leader-initialize ()
+  "Setup leader key in god mode map and some major mode maps."
+  (with-eval-after-load 'god-mode
+    ;; define for the god-local-mode (when god mode is on)
+    (define-key god-local-mode-map (kbd god-leader-root-key) god-leader-map)
+    ;; define globally when read only mode is on
+    (global-set-key (kbd god-leader-root-key)
+                    `(menu-item "" ,(global-key-binding (kbd god-leader-root-key))
+                                :filter god-leader--check-read-only))
+    ;; setup description for which-key
+    (when (fboundp 'which-key-add-key-based-replacements)
+      (which-key-add-key-based-replacements
+        god-leader-root-key
+        god-leader-root-description)
+      (which-key-add-key-based-replacements
+        (concat god-leader-root-key " " god-leader-major-mode-key)
+        god-leader-major-mode-description))
+    ;; do additional maps that don't handle god-mode
+    (dolist (map god-leader-maps)
+      (god-leader-do-map (or (car-safe map) map)
+                         (cdr-safe map)))))
+
+(defun god-leader-do-map (map &optional module)
+  "Setup leader key in specific major-mode map."
+  (if module
+      (eval-after-load module
+        `(define-key ,map (kbd god-leader-root-key) god-leader-map))
+    (define-key (eval map) (kbd god-leader-root-key) god-leader-map)))
+
+(defun god-leader-define-key (key fun &optional description)
+  "Add a new key to the leader map. KEY is passed to `kbd'."
+  (let ((k (kbd key))
+        (s (concat god-leader-root-key " " key)))
+    (define-key god-leader-map k fun)
+    (when (and description (fboundp 'which-key-add-key-based-replacements))
+      (which-key-add-key-based-replacements s description))))
+
+(defun god-leader-describe-key (key description)
+  "Add DESCRIPTION to specific KEY for `which-key'."
+  (let ((s (concat god-leader-root-key " " key)))
+    (when (fboundp 'which-key-add-key-based-replacements)
+      (which-key-add-key-based-replacements s description))))
+
+(defun god-leader-major-mode-map (map commands &optional module)
+  "Add major mode command map under map with major-mode-key"
+  (let ((prefix-map-name (intern (concat "god-leader--" (symbol-name commands)))))
+    (eval `(defvar ,prefix-map-name (make-sparse-keymap)))
+    (if module
+        (eval-after-load module
+          `(progn
+             (define-key ,prefix-map-name (kbd god-leader-major-mode-key) ,commands)
+             (define-key ,map (kbd god-leader-root-key)
+               '(menu-item "" ,(eval prefix-map-name) :filter god-leader--check-god-local))))
+      (progn
+        (define-key (eval prefix-map-name) (kbd god-leader-major-mode-key) (eval commands))
+        (define-key (eval map) (kbd god-leader-root-key)
+          `(menu-item "" ,(eval prefix-map-name) :filter god-leader--check-god-local))))))
+#+end_src
+
+** For orderless
+#+begin_src emacs-lisp
+(defun +vertico-orderless-dispatch (pattern _index _total)
+  (cond
+   ;; Ensure $ works with Consult commands, which add disambiguation suffixes
+   ((string-suffix-p "$" pattern)
+    `(orderless-regexp . ,(concat (substring pattern 0 -1) "[\x200000-\x300000]*$")))
+   ;; Ignore single !
+   ((string= "!" pattern) `(orderless-literal . ""))
+   ;; Without literal
+   ((string-prefix-p "!" pattern) `(orderless-without-literal . ,(substring pattern 1)))
+   ;; Character folding
+   ((string-prefix-p "%" pattern) `(char-fold-to-regexp . ,(substring pattern 1)))
+   ((string-suffix-p "%" pattern) `(char-fold-to-regexp . ,(substring pattern 0 -1)))
+   ;; Initialism matching
+   ((string-prefix-p "`" pattern) `(orderless-initialism . ,(substring pattern 1)))
+   ((string-suffix-p "`" pattern) `(orderless-initialism . ,(substring pattern 0 -1)))
+   ;; Literal matching
+   ((string-prefix-p "=" pattern) `(orderless-literal . ,(substring pattern 1)))
+   ((string-suffix-p "=" pattern) `(orderless-literal . ,(substring pattern 0 -1)))
+   ;; Flex matching
+   ((string-prefix-p "~" pattern) `(orderless-flex . ,(substring pattern 1)))
+   ((string-suffix-p "~" pattern) `(orderless-flex . ,(substring pattern 0 -1)))))
+#+end_src
+
+** For consult
+#+begin_src emacs-lisp
+(defmacro +consult-make-find-function (fun-name fun &optional ask)
+  `(defun ,fun-name (arg)
+     (interactive "p")
+     (let ((initial (thing-at-point 'symbol)))
+       (if initial (setq initial (concat initial "#")))
+       (,fun ,ask initial))))
+
+(+consult-make-find-function +consult-find consult-find t)
+(+consult-make-find-function +consult-grep consult-grep t)
+(+consult-make-find-function +consult-ripgrep consult-ripgrep t)
+(+consult-make-find-function +consult-projectile-grep consult-grep)
+(+consult-make-find-function +consult-projectile-ripgrep consult-ripgrep)
+(+consult-make-find-function +consult-git-grep consult-git-grep)
+
+(defun +consult-line ()
+  (interactive)
+  (consult-line (thing-at-point 'symbol)))
+#+end_src
+
+** For projects
+#+begin_src emacs-lisp
+(defmacro +with-real-projectile-file (require-writeable &rest body)
+  "Call BODY only if the current buffer is a real file inside a projectile project.
+If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
+  (declare (debug t))
+  `(when (and buffer-file-name
+              (projectile-project-root)
+              (or (not ,require-writeable)
+                  (file-writable-p (buffer-file-name))))
+     ,@body))
+#+end_src
+
+** For helpful
+#+begin_src emacs-lisp
+(autoload 'helpful--read-symbol "helpful")
+
+(defun +helpful-keymap (symbol)
+  "Show help for keymap named SYMBOL."
+  (interactive
+   (list (helpful--read-symbol
+          "Keymap: "
+          (help-fns--most-relevant-active-keymap)
+          (lambda (m) (and (boundp m) (keymapp (symbol-value m)))))))
+  (helpful--update-and-switch-buffer symbol nil))
+#+end_src
+
+** For company & god-mode
+#+begin_src emacs-lisp
+;; Function for <escape> in company-mode so <escape> still
+;; works transparently with company-mode active
+(defun +company-abort-and-god-mode-enable ()
+  (interactive)
+  (company-abort)
+  (+god-mode-enable-or-keyboard-quit))
+#+end_src
+
+* Configuration
+** Themes
+*** Zenburn
+#+begin_src emacs-lisp
+#+end_src
+
+*** Spacemacs
+#+begin_src emacs-lisp
+(setq spacemacs-theme-comment-bg nil)
+(setq spacemacs-theme-comment-italic nil)
+(setq spacemacs-theme-underline-parens nil)
+(setq spacemacs-theme-org-height nil)
+#+end_src
+
+*** Doom
+#+begin_src emacs-lisp
+;; (doom-themes-visual-bell-config)
+(setq doom-themes-enable-bold t)     ; if nil, bold is universally disabled
+(setq doom-themes-enable-italic nil) ; if nil, italics is universally disabled
+#+end_src
+
+*** LOAD
+#+begin_src emacs-lisp
+(defvar +system-color-depth)
+
+(cond (window-system
+       (setq +system-color-depth '24bit))
+      ((equal (getenv "TERM") "xterm-24bit")
+       (setq +system-color-depth '24bit))
+      ((equal (getenv "TERM") "xterm-256color")
+       (setq +system-color-depth '256color))
+      ((equal (getenv "TERM") "xterm-16color")
+       (setq +system-color-depth '16color))
+      ((equal (getenv "TERM") "xterm")
+       (setq +system-color-depth '8color))
+      ((equal (getenv "TERM") "linux")
+       (setq +system-color-depth '8color))
+      (_
+       (setq +system-color-depth 'headless)))
+
+(pcase +system-color-depth
+  ('24bit    (+doom-moonlight))
+  ('256color (+zenburn)))
+#+end_src
+
+** Misc options
+#+begin_src emacs-lisp
+(defalias 'yes-or-no-p 'y-or-n-p)  ; Treat 'y' as yes, 'n' as no.
+(define-key query-replace-map [return] 'act)  ; TODO: doesn't work anymore
+(define-key query-replace-map [?\C-m] 'act)   ; TODO: doesn't work anymore
+
+(setq load-prefer-newer t)
+(setq inhibit-startup-screen t)
+(setq scroll-conservatively 101)
+(setq scroll-error-top-bottom t)
+(setq require-final-newline t)
+(setq gc-cons-threshold (* 10 1024 1024))
+(setq-default truncate-lines t)
+(setq bookmark-default-file "~/.emacs-bookmarks.el")
+(setq recentf-save-file "~/.emacs-recentf.el")
+(setq recentf-max-saved-items 500)
+(setq create-lockfiles nil)       ; lockfiles breaks python completion
+(setq find-file-visit-truename t) ; doom-modeline likes that
+(setq view-mode-map (make-sparse-keymap))
+(setq +delete-trailing-whitespace-on-save t)
+
+(when window-system
+  (setq confirm-kill-emacs 'y-or-n-p))
+
+;;; minor modes
+(setq show-paren-delay 0.0)
+(setq display-time-24hr-format t)
+(setq display-time-day-and-date nil)
+(setq display-time-default-load-average nil)
+
+;;; hooks
+(add-hook 'text-mode-hook #'turn-on-auto-fill)
+(add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
+#+end_src
+
+** Minor modes
+#+begin_src emacs-lisp
+;;; GUI
+(menu-bar-mode 0)
+(tool-bar-mode 0)
+(tooltip-mode 0)
+(when window-system
+  (set-scroll-bar-mode nil))
+
+(defun +disable-scroll-bars (frame)
+  (modify-frame-parameters frame
+                           '((vertical-scroll-bars . nil)
+                             (horizontal-scroll-bars . nil))))
+(add-hook 'after-make-frame-functions '+disable-scroll-bars)
+
+;; (add-to-list 'default-frame-alist
+;;              '(vertical-scroll-bars . nil))
+
+;;; modeline
+(column-number-mode t)
+(line-number-mode t)
+(size-indication-mode t)
+(display-time-mode t)
+
+;;; misc / buffer
+(show-paren-mode t)
+(delete-selection-mode t)
+(transient-mark-mode t)
+(global-auto-revert-mode t)
+(recentf-mode t)
+
+;;; external, too short for their own section
+(global-page-break-lines-mode t)
+(beginend-global-mode t)
+(setq anzu-cons-mode-line-p nil)
+(global-anzu-mode t)
+#+end_src
+
+** GUI options
+#+begin_src emacs-lisp
+(setq use-dialog-box t)
+(setq default-frame-alist
+      '((width . 120)
+        (height . 40)))
+(setq-default cursor-type 'bar)
+(pcase window-system
+  ('w32 (set-face-attribute 'default nil :font "Ubuntu Mono-12"))
+  ('mac (set-face-attribute 'default nil :height 140))
+  ('ns  (set-face-attribute 'default nil :family "Monaco" :height 140)))
+
+;;; stop beeping FFS
+(setq ring-bell-function #'(lambda ()))
+#+end_src
+
+** Mouse options
+#+begin_src emacs-lisp
+(setq mouse-yank-at-point t)
+(setq mouse-wheel-scroll-amount '(1 ((shift) . 5) ((control))))
+
+(when (eq window-system 'mac)
+  (setq mac-mouse-wheel-smooth-scroll nil))
+
+(xterm-mouse-mode t)
+#+end_src
+
+** Backups
+#+begin_src emacs-lisp
+(setq temporary-file-directory "~/tmp")
+(unless (file-directory-p temporary-file-directory)
+  (mkdir temporary-file-directory))
+
+(setq backup-directory-alist
+      `((".*" . ,temporary-file-directory)))
+(setq auto-save-list-file-prefix
+      (concat temporary-file-directory "/auto-save-list/.saves-"))
+;; (setq auto-save-file-name-transforms
+;;       `((".*" ,temporary-file-directory t)))
+#+end_src
+
+** Tab related
+#+begin_src emacs-lisp
+(setq tab-always-indent 'complete)
+(setq backward-delete-char-untabify-method nil)
+(setq-default indent-tabs-mode t)
+(setq-default tab-width 4)
+(defvaralias 'standard-indent 'tab-width)
+#+end_src
+
+** paradox
+#+begin_src emacs-lisp
+(setq paradox-column-width-package 30)
+(setq paradox-column-width-version 14)
+(setq paradox-spinner-type 'progress-bar-filled)
+(setq paradox-automatically-star nil)
+(setq paradox-execute-asynchronously nil)
+(setq package-native-compile t)
+#+end_src
+
+** shackle
+#+begin_src emacs-lisp
+;;; Finally, don't create/switch/delete windows uncontrollably because
+;;; every plugin author has a different view on how your workflow
+;;; should look like. With few small exceptions (popup windows) don't
+;;; create any windows unless I do that explicitely.
+
+;;; windows that are allowed to popup
+(setq shackle-rules '(("\*Marked\ Files\*" :regexp t :align t)     ;; dired
+                      ("\*Deletions\*"     :regexp t :align t)     ;; dired
+                      ("\*transient\*"     :regexp t :align t)))   ;; magit
+;;; everything else reuse current window and don't close it on quit
+(setq shackle-default-rule '(:same t :inhibit-window-quit t :select t))
+
+(shackle-mode t)
+#+end_src
+
+** switch-window
+#+begin_src emacs-lisp
+(setq switch-window-minibuffer-shortcut ?x)
+(setq switch-window-background t)
+(setq switch-window-mvborder-increment 2)
+(setq switch-window-multiple-frames t)
+#+end_src
+
+** window-jump
+#+begin_src emacs-lisp
+(setq wj-jump-frames switch-window-multiple-frames)
+#+end_src
+
+** tab-bar
+#+begin_src emacs-lisp
+(setq tab-bar-show 1)
+(setq tab-bar-new-tab-choice "*scratch*")
+(setq tab-bar-tab-hints t)
+(setq tab-bar-select-tab-modifiers '(meta))
+(setq tab-bar-close-button-show nil)
+(tab-bar-mode t)
+(tab-rename "main ")
+
+(defmacro +tab-bar-select-function (number)
+  (let ((fun-name (format "+tab-select-%d" number)))
+    `(defun ,(intern fun-name) ()
+       (interactive)
+       (tab-select ,number))))
+(dotimes (count 10)
+  (eval `(+tab-bar-select-function ,count)))
+#+end_src
+
+** vundo
+#+begin_src emacs-lisp
+(setq vundo-compact-display t)
+(setq vundo-window-max-height 15)
+#+end_src
+
+** dired
+#+begin_src emacs-lisp
+(setq dired-dwim-target t)
+(setq dired-auto-revert-buffer t)
+(setq dired-listing-switches "-alhB --group-directories-first")
+(if (eq system-type 'darwin)
+    (setq insert-directory-program "gls"))
+
+(if (eq system-type 'windows-nt)
+    (setq ls-lisp-use-insert-directory-program t))
+
+(with-eval-after-load 'dired
+  ;; (add-hook 'dired-mode-hook #'all-the-icons-dired-mode)
+  (add-hook 'dired-mode-hook #'diredfl-mode))
+#+end_src
+
+** ibuffer
+#+begin_src emacs-lisp
+(setq ibuffer-default-sorting-mode 'alphabetic)
+(setq ibuffer-expert t)
+
+(defun +ibuffer-kill ()
+  (interactive)
+  (kill-buffer "*Ibuffer*"))
+(with-eval-after-load 'ibuffer
+  ;; (add-hook 'ibuffer-mode-hook #'all-the-icons-ibuffer-mode)
+  (define-key ibuffer-mode-map [remap quit-window] #'+ibuffer-kill))
+#+end_src
+
+** whitespace-mode
+#+begin_src emacs-lisp
+(pcase +system-color-depth
+  ('24bit    (setq whitespace-style '(face trailing space-mark tab-mark spaces tabs)))
+  ('256color (setq whitespace-style '(face trailing space-mark tab-mark spaces tabs)))
+  (_         (setq whitespace-style '(face trailing space-mark tab-mark))))
+#+end_src
+
+** parinfer-rust-mode
+#+begin_src emacs-lisp
+(setq parinfer-rust-mode-map (make-sparse-keymap))
+(setq parinfer-rust-preferred-mode "indent")
+(setq +parinfer-rust-use-rainbow-delimiters t)
+#+end_src
+
+** which-key
+#+begin_src emacs-lisp
+(setq which-key-idle-secondary-delay 0.5)
+
+(which-key-mode t)
+(which-key-enable-god-mode-support)
+#+end_src
+
+** calendar
+#+begin_src emacs-lisp
+(setq calendar-week-start-day 1)
+(setq calendar-mark-holidays-flag t)
+(with-eval-after-load 'calendar
+  (calendar-set-date-style 'european)
+  (add-hook 'calendar-today-visible-hook 'calendar-mark-today))
+
+(setq holiday-hebrew-holidays nil)
+(setq holiday-islamic-holidays nil)
+(setq holiday-bahai-holidays nil)
+(setq holiday-oriental-holidays nil)
+(setq holiday-christian-holidays nil)
+(setq holiday-general-holidays
+      `((holiday-fixed 1 1 "Nowy Rok")
+        (holiday-fixed 1 6 "Trzech Króli")
+        (holiday-easter-etc 0 "Wielkanoc")
+        (holiday-easter-etc 1 "Poniedziałek Wielkanocny")
+        (holiday-fixed 5 1 "Święto Pracy")
+        (holiday-fixed 5 3 "Święto Konstytucji 3 Maja")
+        (holiday-easter-etc 49 "Zielone świątki")
+        (holiday-easter-etc 60 "Boże Ciało")
+        (holiday-fixed 8 15 "Wniebowzięcie Najświętrzej Maryi Panny")
+        (holiday-fixed 11 1 "Wszystkich Świętych")
+        (holiday-fixed 11 11 "Święto Niepodległości")
+        (holiday-fixed 12 25 "Pierwszy dzień Bożego Narodzenia")
+        (holiday-fixed 12 26 "Drugi dzień Bożego Narodzenia")))
+#+end_src
+
+** vterm
+#+begin_src emacs-lisp
+(autoload 'multi-vterm-next "multi-vterm" "" t)
+#+end_src
+
+** avy
+#+begin_src emacs-lisp
+(setq avy-keys (append (number-sequence ?a ?z) (number-sequence ?A ?Z)))
+(setq avy-background t)
+
+(autoload 'avy-pop-mark "avy" "" t)
+#+end_src
+
+** server
+#+begin_src emacs-lisp
+(defun +maybe-server-start ()
+  (when (eq window-system 'x)
+    (server-start)))
+
+(add-hook 'after-init-hook #'+maybe-server-start)
+#+end_src
+
+** ediff
+#+begin_src emacs-lisp
+(setq ediff-split-window-function 'split-window-horizontally)
+(setq ediff-window-setup-function 'ediff-setup-windows-plain)
+(setq +ediff-restore-winconfig-state-on-exit t)
+
+(with-eval-after-load 'ediff-init
+  (autoload 'outline-show-all "outline" "" t)
+  (add-hook 'ediff-prepare-buffer-hook #'outline-show-all))
+#+end_src
+
+** vdiff           "SPC major"
+#+begin_src emacs-lisp
+(with-eval-after-load 'vdiff
+  (autoload 'outline-show-all "outline" "" t)
+  (add-hook 'vdiff-mode-hook #'outline-show-all))
+
+(god-leader-major-mode-map 'vdiff-mode-map 'vdiff-mode-prefix-map 'vdiff)
+#+end_src
+
+** xref
+#+begin_src emacs-lisp
+(setq xref-prompt-for-identifier nil)
+#+end_src
+
+** company
+#+begin_src emacs-lisp
+(setq company-backends
+      '(company-capf
+        company-files
+        company-ispell))
+
+(setq company-idle-delay 0)
+(setq company-minimum-prefix-length 3)
+(setq company-require-match nil)
+(setq company-tooltip-align-annotations t)
+(setq +company-replace-completion t)
+(setq +company-ignore-orderless t)
+
+(global-company-mode t)
+#+end_src
+
+** yasnippet
+#+begin_src emacs-lisp
+(setq yas-minor-mode-map (make-sparse-keymap))
+(setq yas-alias-to-yas/prefix-p nil)
+#+end_src
+
+** compile
+#+begin_src emacs-lisp
+(setq compilation-read-command nil)
+(setq compilation-scroll-output t)
+#+end_src
+
+** doom-modeline
+#+begin_src emacs-lisp
+(setq doom-modeline-height 24)
+(setq doom-modeline-buffer-file-name-style 'relative-from-project)
+(setq doom-modeline-icon (if window-system t nil))
+
+(doom-modeline-mode t)
+#+end_src
+
+** writeroom-mode
+#+begin_src emacs-lisp
+(setq writeroom-width 120)
+(setq writeroom-restore-window-config t)
+(setq writeroom-mode-line t)
+
+(with-eval-after-load 'writeroom-mode
+  (+delete-from-list 'writeroom-global-effects 'writeroom-set-fullscreen))
+#+end_src
+
+** minimap
+#+begin_src emacs-lisp
+(setq minimap-window-location 'right)
+(setq minimap-minimum-width 20)
+(with-eval-after-load 'minimap
+  (add-to-list 'minimap-major-modes 'text-mode))
+#+end_src
+
+** org-mode
+#+begin_src emacs-lisp
+(setq org-directory "~/pCloud/Documents/emacs/org")
+(defun +org-file-path (filename)
+  "Return the absolute address of an org file, given its relative name."
+  (concat (file-name-as-directory org-directory) filename))
+(setq org-index-file (+org-file-path "index.org"))
+
+(when (file-exists-p org-index-file)
+  (setq org-default-notes-file org-index-file)
+  (setq org-agenda-files (list org-index-file))
+  (setq org-archive-location (concat (+org-file-path "archive.org") "::* From %s")))
+
+(setq org-log-done 'time)
+(setq org-edit-src-content-indentation 0)
+(setq org-src-fontify-natively t)
+(setq org-src-tab-acts-natively t)
+(setq org-src-window-setup 'current-window)
+(setq org-startup-indented t)
+(setq org-support-shift-select t)
+(setq org-babel-python-command "python3")
+(setq org-confirm-babel-evaluate nil)
+(setq org-beamer-theme "Warsaw")
+(setq org-highlight-latex-and-related '(latex))
+(setq org-export-with-sub-superscripts '{})
+
+(setq org-latex-listings 'minted)
+(setq org-latex-packages-alist '(("" "minted")))
+(setq org-latex-compiler "xelatex")
+(setq org-latex-pdf-process
+      '("%latex -shell-escape -interaction nonstopmode -output-directory %o %f"
+        "%latex -shell-escape -interaction nonstopmode -output-directory %o %f"
+        "%latex -shell-escape -interaction nonstopmode -output-directory %o %f"))
+
+(with-eval-after-load 'org
+  (org-babel-do-load-languages 'org-babel-load-languages '((emacs-lisp . t) (python . t) (C . t) (shell . t)))
+  (require 'ob-rust)
+
+  (add-hook 'org-mode-hook #'turn-on-auto-fill)
+  (add-hook 'org-mode-hook #'org-bullets-mode)
+
+  ;;; was (org-cycle-agenda-files), allow avy
+  (define-key org-mode-map [(control ?\')] nil))
+
+(with-eval-after-load 'ox
+  (require 'ox-twbs)
+  (require 'ox-beamer))
+#+end_src
+
+** magit
+#+begin_src emacs-lisp
+(setq magit-define-global-key-bindings nil)
+(setq magit-repository-directories '(("~/devel/" . 2) ("~/.emacs.d/" . 1) ("~/Documents/" . 1)))
+(setq magit-bury-buffer-function 'quit-window)
+(setq +magit-dont-restore-window-configuration t)
+(when (eq system-type 'windows-nt)
+  (setq magit-git-executable "git.exe"))
+#+end_src
+
+** rust-mode       "SPC major"
+#+begin_src emacs-lisp
+(setq rust-mode-map (make-sparse-keymap))
+
+(defvar rust-command-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "d") #'rust-dbg-wrap-or-unwrap)
+    (define-key map (kbd "c") #'rust-compile)
+    (define-key map (kbd "k") #'rust-check)
+    (define-key map (kbd "t") #'rust-test)
+    (define-key map (kbd "r") #'rust-run)
+    (define-key map (kbd "l") #'rust-run-clippy)
+    (define-key map (kbd "f") #'rust-format-buffer)
+    (define-key map (kbd "n") #'rust-goto-format-problem)
+    map))
+
+(god-leader-major-mode-map 'rust-mode-map 'rust-command-map 'rust-mode)
+#+end_src
+
+** symbol-overlay  "SPC o"
+#+begin_src emacs-lisp
+(defvar symbol-overlay-command-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "o") #'symbol-overlay-put)
+    (define-key map (kbd "r") #'symbol-overlay-remove-all)
+    (define-key map (kbd "c") #'symbol-overlay-count)
+    (define-key map (kbd "m") #'symbol-overlay-mode)
+    (define-key map (kbd "f") #'symbol-overlay-switch-forward)
+    (define-key map (kbd "b") #'symbol-overlay-switch-backward)
+    (define-key map (kbd "n") #'symbol-overlay-jump-next)
+    (define-key map (kbd "p") #'symbol-overlay-jump-prev)
+    map))
+#+end_src
+
+** projectile      "SPC p"
+#+begin_src emacs-lisp
+(setq projectile-keymap-prefix nil)
+(setq projectile-known-projects-file "~/.emacs-projectile.el")
+(setq projectile-cache-file "~/.emacs-projectile-cache.el")
+(setq projectile-dynamic-mode-line nil)
+(setq frame-title-format '((:eval (projectile-project-name))))
+(setq project-list-file "~/.emacs-project.el")
+
+(with-eval-after-load 'projectile
+  (add-to-list 'projectile-globally-ignored-directories "build")
+  (add-to-list 'projectile-globally-ignored-directories "out")
+  (add-to-list 'projectile-globally-ignored-directories ".ccls-cache")
+  (add-to-list 'projectile-project-root-files-top-down-recurring "compile_commands.json")
+  (add-to-list 'projectile-project-root-files-top-down-recurring ".ccls"))
+
+(projectile-mode t)
+#+end_src
+
+** flycheck        "SPC f"
+#+begin_src emacs-lisp
+(setq flycheck-mode-map (make-sparse-keymap))
+(setq flycheck-mode-line nil)
+(setq flycheck-flake8-maximum-line-length 100)
+(setq flycheck-idle-change-delay 3)
+(setq flycheck-check-syntax-automatically '(save new-line mode-enabled))
+
+(autoload 'flycheck-select-checker "flycheck" "" t)
+
+;;; enable everywhere excluding elisp, it always reports shitload of errors for snippets
+(setq-default flycheck-disabled-checkers '(emacs-lisp-checkdoc emacs-lisp))
+#+end_src
+
+** lsp-mode        "SPC l"
+#+begin_src emacs-lisp
+(setq lsp-keymap-prefix nil)
+(setq lsp-session-file "~/.emacs-lsp-session-v1")
+(setq lsp-restart 'ignore)
+(setq lsp-enable-symbol-highlighting nil)
+(setq lsp-enable-on-type-formatting nil)
+(setq lsp-headerline-arrow "/")
+(setq lsp-file-watch-threshold 8000)
+(setq lsp-lens-enable nil)
+
+(setq lsp-ui-doc-enable nil)
+(setq lsp-ui-doc-delay 1)
+(setq lsp-ui-doc-alignment 'window)
+(setq lsp-ui-doc-show-with-cursor t)
+(setq lsp-ui-doc-show-with-mouse nil)
+
+(setq lsp-ui-sideline-delay 1)
+
+(with-eval-after-load 'lsp-mode
+  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]out\\'")
+  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]build\\'")
+  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\.ccls-cache\\'"))
+
+;; reimplement the original map to something more compact
+(setq lsp-command-map (make-sparse-keymap))
+(with-eval-after-load 'lsp-mode
+  (define-key lsp-command-map (kbd "a") #'lsp-execute-code-action)
+  (define-key lsp-command-map (kbd "d") #'lsp-describe-thing-at-point)
+  (define-key lsp-command-map (kbd "f") #'lsp-format-buffer)
+  (define-key lsp-command-map (kbd "h") #'lsp-document-highlight)
+  (define-key lsp-command-map (kbd "i") #'lsp-ui-imenu)
+  (define-key lsp-command-map (kbd "l") #'consult-lsp-diagnostics)   ;; lsp-ui-flycheck-list
+  (define-key lsp-command-map (kbd "r") #'lsp-rename))
+#+end_src
+
+** god-mode
+#+begin_src emacs-lisp
+(setq god-mode-enable-function-key-translation nil)
+
+;;; enablers and disablers
+(with-eval-after-load 'god-mode
+  (add-to-list 'god-exempt-major-modes 'vterm-mode t)
+  (add-to-list 'god-exempt-major-modes 'finder-mode t)
+  (+delete-from-list 'god-exempt-predicates #'god-view-mode-p)
+
+  (global-set-key (kbd "<escape>") #'+god-mode-enable-or-keyboard-quit)
+  (define-key god-local-mode-map (kbd "i") #'+god-mode-disable)
+  ;;; broken for now
+  (define-key god-local-mode-map (kbd "C-h k") nil))
+
+(god-mode)
+#+end_src
+
+** god-leader
+#+begin_src emacs-lisp
+;;; Example of an alternative way, add before initialization
+;; (with-eval-after-load 'god-leader
+;;   (add-to-list 'god-leader-maps '(magit-mode-map . magit-mode) t)
+;;   (add-to-list 'god-leader-maps '(magit-revision-mode-map . magit-diff) t))
+(god-leader-initialize)
+(god-leader-do-map 'magit-mode-map 'magit-mode)
+(god-leader-do-map 'magit-revision-mode-map 'magit-diff)
+(god-leader-do-map 'rg-mode-map 'rg-result)
+(god-leader-do-map 'ibuffer-mode-map 'ibuffer)
+(god-leader-do-map 'archive-mode-map 'arc-mode)
+(god-leader-do-map 'tar-mode-map 'tar-mode)
+(god-leader-do-map 'ztree-mode-map 'ztree-view)
+(god-leader-do-map 'magit-diff-mode-map 'magit-diff)
+(add-hook 'ediff-keymap-setup-hook (lambda () (god-leader-do-map 'ediff-mode-map)))
+#+end_src
+
+** dashboard
+#+begin_src emacs-lisp
+(setq dashboard-items '((recents  . 5)
+                        (projects . 5)
+                        (bookmarks . 5)))
+(setq dashboard-set-heading-icons (if window-system t nil))
+(setq dashboard-set-file-icons (if window-system t nil))
+(setq dashboard-set-footer nil)
+(setq dashboard-startup-banner 'logo)
+(setq dashboard-center-content t)
+
+(dashboard-setup-startup-hook)
+#+end_src
+
+** minibuffer [vertico]
+#+begin_src emacs-lisp
+;; (setq enable-recursive-minibuffers t)
+(setq read-file-name-completion-ignore-case t)
+(setq read-buffer-completion-ignore-case t)
+(setq completion-ignore-case t)
+(setq +crm-indicator t)
+#+end_src
+
+** orderless [vertico]
+#+begin_src emacs-lisp
+(setq orderless-style-dispatchers '(+vertico-orderless-dispatch))
+(setq completion-styles '(orderless basic))
+(setq completion-category-defaults nil)
+(setq completion-category-overrides '((file (styles orderless partial-completion))))
+(with-eval-after-load 'orderless
+  (add-to-list 'orderless-matching-styles 'orderless-prefixes t))
+#+end_src
+
+** vertico
+#+begin_src emacs-lisp
+(setq vertico-count 20)
+(setq vertico-resize nil)
+
+(add-hook 'minibuffer-setup-hook #'vertico-repeat-save)
+(with-eval-after-load 'rfn-eshadow
+  (add-hook 'rfn-eshadow-update-overlay-hook #'vertico-directory-tidy))
+
+(vertico-mode t)
+#+end_src
+
+** consult [vertico]
+#+begin_src emacs-lisp
+(setq xref-show-xrefs-function #'consult-xref)
+(setq xref-show-definitions-function #'consult-xref)
+
+(setq completion-in-region-function #'consult-completion-in-region)
+
+;; (setq consult-narrow-key (kbd "C-c")) ; something broke here, key-valid-p
+(setq consult-async-min-input 2)
+(setq consult-async-refresh-delay  0.1)
+(setq consult-async-input-throttle 0.2)
+(setq consult-async-input-debounce 0.1)
+(setq consult-line-start-from-top t)
+(setq +consult-async-show-filename t)
+
+(with-eval-after-load 'consult
+  (when (eq system-type 'windows-nt)
+	(setq consult-find-args (concat "c:/Users/Havner/Downloads/emacs/bin/" consult-find-args))))
+#+end_src
+
+** marginalia [vertico]
+#+begin_src emacs-lisp
+(with-eval-after-load 'marginalia
+  ;; (add-hook 'marginalia-mode-hook #'all-the-icons-completion-marginalia-setup)
+  (add-to-list 'marginalia-command-categories '(projectile-find-file . project-file))
+  (add-to-list 'marginalia-command-categories '(projectile-recentf . project-file))
+  (add-to-list 'marginalia-command-categories '(projectile-switch-to-buffer . buffer))
+  (add-to-list 'marginalia-command-categories '(projectile-switch-project . project-file)))
+
+(marginalia-mode t)
+#+end_src
+
+** embark [vertico]
+#+begin_src emacs-lisp
+(setq which-key-use-C-h-commands nil)
+(setq prefix-help-command #'embark-prefix-help-command)
+(setq embark-quit-after-action '((kill-buffer . nil)
+                                 (t . t)))
+
+(with-eval-after-load 'embark
+  (add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)
+  (+delete-from-list 'embark-pre-action-hooks '(kill-buffer embark--confirm)))
+#+end_src
+
+** wgrep
+#+begin_src emacs-lisp
+(setq wgrep-enable-key (kbd "C-x C-q"))
+(with-eval-after-load 'wgrep
+  (define-key wgrep-mode-map (kbd "C-x C-s") nil)
+  (define-key wgrep-mode-map (kbd "C-c C-e") nil))
+#+end_src
+
+* Programming
+** Text
+#+begin_src emacs-lisp
+(defun +text-mode-hook-f ()
+  (setq show-trailing-whitespace t)
+  (setq fill-column 80))
+(add-hook 'text-mode-hook #'+text-mode-hook-f t)
+#+end_src
+
+** Prog
+#+begin_src emacs-lisp
+(defun +prog-devel-hook-f ()
+  (+text-mode-hook-f)
+  (display-fill-column-indicator-mode t)
+  (display-line-numbers-mode t)
+  (subword-mode t)
+  (rainbow-delimiters-mode t)
+  (yas-minor-mode t)
+  (flycheck-mode t))
+(add-hook 'prog-mode-hook #'+prog-devel-hook-f t)
+#+end_src
+
+** CC
+#+begin_src emacs-lisp
+(setq ccls-executable "~/Documents/ccls/Release/ccls")
+(with-eval-after-load 'cc-mode
+  (require 'ccls))
+
+(setq c-basic-offset tab-width)
+(defvaralias 'c-basic-offset 'tab-width)
+(smart-tabs-insinuate 'c 'c++)
+(setq c-tab-always-indent nil)
+(setq c-insert-tab-function 'completion-at-point)
+(setq c-default-style
+      '((c-mode . "linux")
+        (c++-mode . "stroustrup")
+        (java-mode . "java")
+        (awk-mode . "awk")
+        (other . "gnu")))
+
+;; (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))      ; *.h in c++-mode
+
+(defun +cc-devel-hook-f ()
+  (c-set-offset 'innamespace 0)
+  (c-set-offset 'inextern-lang 0)
+  (c-set-offset 'inline-open 0)
+  (c-set-offset 'inlambda '+)
+  (+with-real-projectile-file t (lsp)))
+(with-eval-after-load 'cc-vars
+  (add-hook 'c-mode-common-hook #'+cc-devel-hook-f t))
+#+end_src
+
+** Rust
+#+begin_src emacs-lisp
+(with-eval-after-load 'rust-mode
+  (require 'lsp-rust))
+
+(defvaralias 'rust-indent-offset 'tab-width)
+
+(defun +rust-devel-f ()
+  (setq tab-width 4)
+  (setq indent-tabs-mode nil)
+  (+with-real-projectile-file t (lsp)))
+(with-eval-after-load 'rust-mode
+  (add-hook 'rust-mode-hook #'+rust-devel-f t))
+#+end_src
+
+** Python
+#+begin_src emacs-lisp
+(setq lsp-pyls-plugins-pylint-enabled nil) ; it's too noisy
+(with-eval-after-load 'python
+  (require 'lsp-pyls))
+
+(defvaralias 'python-indent-offset 'tab-width)
+
+(defun +python-devel-hook-f ()
+  (setq tab-width 4)
+  (setq indent-tabs-mode nil)
+  (+with-real-projectile-file t (lsp)))
+(with-eval-after-load 'python
+  (add-hook 'python-mode-hook #'+python-devel-hook-f t))
+#+end_src
+
+** LUA
+#+begin_src emacs-lisp
+(defvaralias 'lua-indent-level 'tab-width)
+
+(defun +lua-devel-hook-f ()
+  (setq require-final-newline nil)
+  (setq delete-trailing-whitespace-on-save nil)
+  (setq tab-width 4))
+(with-eval-after-load 'lua-mode
+  (add-hook 'lua-mode-hook #'+lua-devel-hook-f t))
+#+end_src
+
+** JS
+#+begin_src emacs-lisp
+(defvaralias 'js-indent-level 'tab-width)
+
+(defun +js-devel-f ()
+  (setq tab-width 4))
+(with-eval-after-load 'js
+  (add-hook 'js-mode-hook #'+js-devel-f t))
+#+end_src
+
+** Lisps
+#+begin_src emacs-lisp
+;;; repls
+(defalias 'run-elisp 'ielm)             ; run-elisp
+(setq inferior-lisp-program "sbcl")     ; run-lisp
+(setq scheme-program-name "scheme")     ; run-scheme
+
+(defun +lisps-devel-hook-f ()
+  (setq indent-tabs-mode nil)
+  (when (or (not buffer-file-name)
+            (not (equal "init.el" (file-name-nondirectory buffer-file-name))))
+    (parinfer-rust-mode t)))
+(setq lisps-mode-hooks
+      '(emacs-lisp-mode-hook
+        lisp-mode-hook
+        scheme-mode-hook))
+        ;; ielm-mode-hook
+        ;; inferior-lisp-mode-hook
+        ;; inferior-scheme-mode-hook
+(dolist (hook lisps-mode-hooks)
+  (add-hook hook #'+lisps-devel-hook-f t))
+#+end_src
+
+** shell
+#+begin_src emacs-lisp
+(defvaralias 'sh-indentation 'tab-width)
+(defvaralias 'sh-basic-offset 'tab-width)
+
+(add-to-list 'auto-mode-alist '("bashrc\\." . shell-script-mode))
+(add-to-list 'auto-mode-alist '("profile\\'" . shell-script-mode))
+
+;; (add-to-list 'smart-tabs-insinuate-alist
+;;              '(sh lambda nil
+;;                   (add-hook 'sh-mode-hook
+;;                             (lambda nil
+;;                               (smart-tabs-mode-enable)
+;;                               (smart-tabs-advice sh-basic-indent-line sh-basic-offset)))))
+
+;; (smart-tabs-insinuate 'sh)
+
+(defun +sh-devel-hook-f ()
+  (setq tab-width 4)
+  (setq-local company-backends
+              '(company-dabbrev-code
+                company-files
+                company-ispell)))
+(with-eval-after-load 'sh-script
+  (add-hook 'sh-mode-hook #'+sh-devel-hook-f t))
+#+end_src
+
+** NXML
+#+begin_src emacs-lisp
+(defvaralias 'nxml-child-indent 'tab-width)
+
+(defun +nxml-devel-hook-f ()
+  (setq tab-width 2))
+(with-eval-after-load 'nxml-mode
+  (add-hook 'nxml-mode-hook #'+nxml-devel-hook-f t))
+#+end_src
+
+** Diff
+#+begin_src emacs-lisp
+;;; diff mode resets whitespace-style, my styles include face and trailing
+(defun +diff-devel-hook-f ()
+  (setq-local whitespace-style '(face trailing spaces tabs space-mark tab-mark)))
+(with-eval-after-load 'diff-mode
+  (add-hook 'diff-mode-hook #'+diff-devel-hook-f t))
+#+end_src
+
+** Make
+#+begin_src emacs-lisp
+(with-eval-after-load 'company-dabbrev-code
+  (add-to-list 'company-dabbrev-code-modes 'makefile-mode))
+
+(defun +makefile-devel-hook-f ()
+  (setq-local company-backends
+              '(company-dabbrev-code
+                company-files
+                company-ispell)))
+(with-eval-after-load 'make-mode
+  (add-hook 'makefile-mode-hook #'+makefile-devel-hook-f t))
+#+end_src
+
+** CMake
+#+begin_src emacs-lisp
+(defvaralias 'cmake-tab-width 'tab-width)
+
+(with-eval-after-load 'company-dabbrev-code
+  (add-to-list 'company-dabbrev-code-modes 'cmake-mode))
+
+(defun +cmake-devel-hook-f ()
+  (setq-local company-backends
+              '((company-dabbrev-code company-cmake)
+                company-keywords
+                company-files
+                company-ispell)))
+(with-eval-after-load 'cmake-mode
+  (add-hook 'cmake-mode-hook #'+cmake-devel-hook-f t))
+#+end_src
+
+** eshell
+#+begin_src emacs-lisp
+(defun +esh-devel-hook-f ()
+  (setq-local company-backends
+              '(company-capf)))
+(with-eval-after-load 'esh-mode
+  (add-hook 'eshell-mode-hook #'+esh-devel-hook-f))
+#+end_src
+
+** LaTeX
+#+begin_src emacs-lisp
+(defun +latex-devel-hook-f ()
+  (setq-local company-backends
+              '(company-files
+                company-ispell))
+  (company-auctex-init))
+(with-eval-after-load 'tex-mode
+  (add-hook 'LaTeX-mode-hook #'+latex-devel-hook-f))
+#+end_src
+
+* Shortcuts
+** Escape!
+#+begin_src emacs-lisp
+(with-eval-after-load 'minibuffer
+  (define-key minibuffer-mode-map (kbd "<escape>") #'minibuffer-keyboard-quit))
+(with-eval-after-load 'company
+  (define-key company-active-map (kbd "<escape>") #'+company-abort-and-god-mode-enable))
+(with-eval-after-load 'transient
+  (define-key transient-map (kbd "<escape>") #'transient-quit-one))
+(with-eval-after-load 'lsp-ui-imenu
+  (define-key lsp-ui-imenu-mode-map (kbd "<escape>") #'quit-window))
+(with-eval-after-load 'lsp-ui-flycheck
+  (define-key lsp-ui-flycheck-list-mode-map (kbd "<escape>") #'quit-window))
+(with-eval-after-load 'vundo
+  (define-key vundo-mode-map (kbd "<escape>") #'vundo-quit))
+(with-eval-after-load 'esh-mode
+  (define-key eshell-mode-map (kbd "<escape>") #'quit-window))
+#+end_src
+
+** Global shortcuts
+#+begin_src emacs-lisp
+(pcase window-system
+  ('w32
+   (global-set-key (kbd "<C-M-up>") #'scroll-down-line)
+   (global-set-key (kbd "<C-M-down>") #'scroll-up-line)
+   (global-set-key (kbd "<C-M-left>") #'+scroll-left-small)
+   (global-set-key (kbd "<C-M-right>") #'+scroll-right-small))
+  (_
+   (global-set-key (kbd "<s-up>") #'scroll-down-line)
+   (global-set-key (kbd "<s-down>") #'scroll-up-line)
+   (global-set-key (kbd "<s-left>") #'+scroll-left-small)
+   (global-set-key (kbd "<s-right>") #'+scroll-right-small)))
+
+(global-set-key (kbd "<f1>") #'vertico-repeat)                    ;; help prefix
+
+(global-set-key (kbd "M-y") #'consult-yank-from-kill-ring)        ;; yank-pop
+
+(global-set-key (kbd "M-n") #'forward-paragraph)
+(global-set-key (kbd "M-p") #'backward-paragraph)
+
+(global-set-key (kbd "M-q") #'unfill-toggle)                      ;; fill-paragraph
+(global-set-key (kbd "M-z") #'zap-up-to-char)                     ;; zap-to-char
+
+(global-set-key (kbd "M-/") #'xref-find-references)               ;; dabbrev-expand
+
+(global-set-key (kbd "C-a") #'mwim-beginning-of-line-or-code)     ;; move-end-of-line
+(global-set-key (kbd "C-e") #'mwim-end-of-line-or-code)           ;; move-beggining-of-line
+
+(global-set-key (kbd "C-s") #'isearch-forward-regexp)             ;; isearch-forward
+(global-set-key (kbd "C-r") #'isearch-backward-regexp)            ;; isearch-backward
+(global-set-key (kbd "C-M-s") #'isearch-forward)                  ;; isearch-forward-regexp
+(global-set-key (kbd "C-M-r") #'isearch-backward)                 ;; isearch-backward-regexp
+(define-key isearch-mode-map (kbd "C-l") #'recenter-top-bottom)
+(define-key isearch-mode-map (kbd "C-o") #'consult-line)
+
+(global-set-key (kbd "C-z") #'undo)                               ;; suspend-frame
+(global-set-key (kbd "C-S-z") #'undo-redo)
+(global-set-key [remap undo] #'undo-only)                         ;; undo
+
+(global-set-key (kbd "C-\\") #'consult-mark)                      ;; toggle-input-method
+(global-set-key (kbd "C-|") #'consult-global-mark)
+
+(global-set-key (kbd "C-.") #'consult-imenu)
+(global-set-key (kbd "C-,") #'consult-imenu-multi)
+
+(global-set-key (kbd "C-'") #'avy-goto-word-1)
+(global-set-key (kbd "C-;") #'avy-pop-mark)
+(define-key isearch-mode-map (kbd "C-'") #'avy-isearch)
+
+(pcase system-type
+  ('windows-nt
+   (global-set-key (kbd "C-`") #'eshell))
+  (_
+   (global-set-key (kbd "C-`") #'multi-vterm-next)
+   (global-set-key (kbd "C-~") #'multi-vterm)))
+
+(global-set-key (kbd "C-o") #'+god-edit-open-line)                ;; open-line
+(global-set-key (kbd "C-S-o") #'+god-edit-open-line-prev)
+(global-set-key (kbd "C-S-a") #'+god-edit-beginning-of-line)
+(global-set-key (kbd "C-S-e") #'+god-edit-end-of-line)
+(global-set-key (kbd "C-S-d") #'+god-edit-change-word)
+(global-set-key (kbd "C-%") #'+god-edit-match-paren)
+#+end_src
+
+** Local map shortcuts
+#+begin_src emacs-lisp
+(define-key minibuffer-local-map (kbd "C-z") #'embark-act)
+
+(with-eval-after-load 'vertico
+  (define-key vertico-map (kbd "<next>") #'vertico-scroll-up)
+  (define-key vertico-map (kbd "<prior>") #'vertico-scroll-down)
+  (define-key vertico-map (kbd "C-<tab>") #'vertico-next-group)
+  (define-key vertico-map (kbd "<backtab>") #'vertico-directory-up)
+  ;; (define-key vertico-map (kbd "<backspace>") #'vertico-directory-delete-char)
+  (define-key vertico-map (kbd "M-<backspace>") #'vertico-directory-delete-word))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-.") #'consult-org-heading)
+  (define-key org-mode-map (kbd "C-c C-'") #'org-edit-special))
+(with-eval-after-load 'org-src
+  (define-key org-src-mode-map (kbd "C-c C-'") #'org-edit-src-exit))
+(with-eval-after-load 'org-keys
+  (define-key org-babel-map (kbd "C-k") #'org-babel-remove-result-one-or-many))
+
+(with-eval-after-load 'dired
+  (define-key dired-mode-map (kbd "<backtab>") #'dired-up-directory))
+
+(with-eval-after-load 'esh-mode
+  (define-key eshell-mode-map (kbd "<tab>") #'completion-at-point)
+  (define-key eshell-mode-map (kbd "TAB") #'completion-at-point))
+
+(with-eval-after-load 'parinfer-rust-mode
+  (define-key parinfer-rust-mode-map (kbd "M-'") #'parinfer-rust-toggle-paren-mode))
+
+(with-eval-after-load 'company
+  (define-key company-active-map [return] nil)
+  (define-key company-active-map (kbd "RET") nil)
+  (define-key company-active-map (kbd "<tab>") #'company-complete-selection)
+  (define-key company-active-map (kbd "TAB") #'company-complete-selection)
+  (define-key company-active-map (kbd "<backtab>") #'consult-company)
+  (define-key company-active-map (kbd "S-<tab>") #'consult-company))
+
+(with-eval-after-load 'company-template
+  (define-key company-template-nav-map [tab] nil)
+  (define-key company-template-nav-map (kbd "TAB") nil)
+  (define-key company-template-nav-map (kbd "C-<tab>") #'company-template-forward-field))
+
+(with-eval-after-load 'lsp
+  (define-key lsp-mode-map (kbd "C-.") #'consult-lsp-file-symbols))
+
+(with-eval-after-load 'lsp-ui
+  (define-key lsp-ui-mode-map (kbd "C-M-,") #'lsp-ui-find-workspace-symbol)
+  (define-key lsp-ui-mode-map (kbd "C-M-.") #'lsp-ui-peek-find-definitions)
+  (define-key lsp-ui-mode-map (kbd "C-M-/") #'lsp-ui-peek-find-references))
+
+(with-eval-after-load 'yasnippet
+  (define-key yas-keymap [(tab)] nil)
+  (define-key yas-keymap (kbd "TAB") nil)
+  (define-key yas-keymap (kbd "<backtab>") 'yas-next-field-or-maybe-expand)
+  (define-key yas-keymap (kbd "S-<tab>") 'yas-next-field-or-maybe-expand))
+
+(with-eval-after-load 'projectile
+  (define-key projectile-command-map (kbd "SPC") #'consult-projectile))
+
+(with-eval-after-load 'flycheck
+  (define-key flycheck-command-map (kbd "SPC") #'consult-flycheck))
+#+end_src
+
+** Leader shortcuts
+#+begin_src emacs-lisp
+;;; command maps defined in this file
+(god-leader-define-key "o" symbol-overlay-command-map "symbol-overlay")
+
+;;; command maps defined in packages
+(with-eval-after-load 'projectile
+  (god-leader-define-key (kbd "p") projectile-command-map "projectile"))
+(with-eval-after-load 'flycheck
+  (god-leader-define-key (kbd "f") flycheck-command-map "flycheck"))
+(with-eval-after-load 'lsp-mode
+  (god-leader-define-key (kbd "l") lsp-command-map "lsp"))
+
+;;; transient command maps
+(god-leader-define-key "m" #'magit-status)
+(god-leader-define-key "g" #'magit-file-dispatch)
+
+(god-leader-define-key "<left>" #'window-jump-left)
+(god-leader-define-key "<right>" #'window-jump-right)
+(god-leader-define-key "<up>" #'window-jump-up)
+(god-leader-define-key "<down>" #'window-jump-down)
+(god-leader-define-key "0" #'+switch-window-then-delete-window-and-balance "delete-window")
+(god-leader-define-key "1" #'switch-window-then-maximize "maximize")
+(god-leader-define-key "2" #'+switch-window-then-split-below-switch-and-balance "split-below")
+(god-leader-define-key "3" #'+switch-window-then-split-right-switch-and-balance "split-right")
+
+(god-leader-define-key "SPC" #'set-mark-command)
+
+(god-leader-describe-key "x" "emacs")
+(god-leader-define-key "x SPC" #'rectangle-mark-mode)
+(god-leader-define-key "x ;" #'eval-expression)
+(god-leader-define-key "x e" #'eval-last-sexp)
+(god-leader-define-key "x p" #'paradox-list-packages)
+(god-leader-define-key "x q" #'save-buffers-kill-terminal)
+(god-leader-define-key "x r" #'+eval-and-replace)
+(god-leader-define-key "x s" #'save-some-buffers)
+(god-leader-define-key "x w" #'write-file)
+(god-leader-define-key "x x" #'execute-extended-command)
+
+(god-leader-describe-key "r" "run")
+(god-leader-define-key "r t" #'multi-vterm-next)
+(god-leader-define-key "r e" #'eshell)
+
+(god-leader-describe-key "t" "toggle")
+(god-leader-define-key "t c" #'display-fill-column-indicator-mode)
+(god-leader-define-key "t f" #'toggle-frame-fullscreen)
+(god-leader-define-key "t F" #'+mac-toggle-frame-fullscreen)
+(god-leader-define-key "t l" #'hl-line-mode)
+(god-leader-define-key "t m" #'minimap-mode)
+(god-leader-define-key "t n" #'display-line-numbers-mode)
+(god-leader-define-key "t t" #'toggle-truncate-lines)
+(god-leader-define-key "t w" #'whitespace-mode)
+(god-leader-define-key "t z" #'writeroom-mode)
+
+(god-leader-describe-key "w" "windows")
+(god-leader-define-key "w <left>" #'window-jump-left)
+(god-leader-define-key "w <right>" #'window-jump-right)
+(god-leader-define-key "w <up>" #'window-jump-up)
+(god-leader-define-key "w <down>" #'window-jump-down)
+(god-leader-define-key "w 0" #'+switch-window-then-delete-window-and-balance "delete-window")
+(god-leader-define-key "w 1" #'switch-window-then-maximize "maximize")
+(god-leader-define-key "w 2" #'+switch-window-then-split-below-switch-and-balance "split-below")
+(god-leader-define-key "w 3" #'+switch-window-then-split-right-switch-and-balance "split-right")
+(god-leader-define-key "w =" #'balance-windows)
+(god-leader-define-key "w k" #'+switch-window-then-delete-window-and-balance "delete-window")
+(god-leader-define-key "w m" #'switch-window-then-maximize "maximize")
+(god-leader-define-key "w n" #'+switch-window-then-split-right-switch-and-balance "split-right")
+(god-leader-define-key "w N" #'+switch-window-then-split-below-switch-and-balance "split-below")
+(god-leader-define-key "w o" #'switch-window "other-window")
+(god-leader-define-key "w r" #'windresize)
+(god-leader-define-key "w s" #'switch-window-then-swap-buffer "swap-buffers")
+(god-leader-define-key "w x" #'+switch-window-then-kill-buffer-and-window-and-balance "kill-buffer-and-window")
+
+(god-leader-describe-key "b" "buffers/files")
+(god-leader-define-key "b b" #'consult-buffer)
+(god-leader-define-key "b d" #'dired)
+(god-leader-define-key "b e" #'ediff-buffers)
+(god-leader-define-key "b f" #'find-file)
+(god-leader-define-key "b g" #'consult-goto-line)
+(god-leader-define-key "b h" #'mark-whole-buffer)
+(god-leader-define-key "b i" #'ibuffer)
+(god-leader-define-key "b j" #'dired-jump)
+(god-leader-define-key "b k" #'+switch-window-then-kill-current-buffer "kill-current-buffer")
+(god-leader-define-key "b m" #'consult-bookmark)
+(god-leader-define-key "b M" #'bookmark-delete)
+(god-leader-define-key "b p" #'consult-project-buffer)
+(god-leader-define-key "b r" #'consult-recent-file)
+(god-leader-define-key "b s" #'+sudo-find-file)
+(god-leader-define-key "b S" #'+sudo-this-file)
+(god-leader-define-key "b u" #'vundo)
+(god-leader-define-key "b v" #'find-alternate-file)
+(god-leader-define-key "b x" #'+switch-to-scratch)
+
+(god-leader-describe-key "c" "spellcheck")
+(god-leader-define-key "c b" #'flyspell-buffer)
+(god-leader-define-key "c c" #'ispell-word)
+(god-leader-define-key "c f" #'flyspell-mode)
+(god-leader-define-key "c l" #'+cycle-ispell-languages)
+(god-leader-define-key "c p" #'flyspell-prog-mode)
+
+(god-leader-describe-key "h" "help/desc")
+(god-leader-define-key "h a" #'helpful-symbol)
+(god-leader-define-key "h b" #'embark-bindings)
+(god-leader-define-key "h c" #'helpful-callable)
+(god-leader-define-key "h f" #'helpful-function)
+(god-leader-define-key "h g" #'customize-group)
+(god-leader-define-key "h h" #'helpful-at-point)
+(god-leader-define-key "h k" #'helpful-key)
+(god-leader-define-key "h K" #'+helpful-keymap)
+(god-leader-define-key "h m" #'describe-mode)
+(god-leader-define-key "h M" #'describe-minor-mode)
+(god-leader-define-key "h p" #'describe-package)
+(god-leader-define-key "h w" #'woman)
+(god-leader-define-key "h W" #'consult-man)
+(god-leader-define-key "h v" #'helpful-variable)
+;; (which-key-show-[full-]keymap)
+;; (which-key-show-[full-]major-mode)
+;; (which-key-show-[full-]minor-mode-keymap)
+
+(god-leader-describe-key "s" "search")
+(god-leader-define-key "s r" #'+consult-ripgrep)
+(god-leader-define-key "s f" #'+consult-find)
+(god-leader-define-key "s g" #'+consult-git-grep)
+(god-leader-define-key "s l" #'consult-focus-lines)
+(god-leader-define-key "s p" #'+consult-projectile-ripgrep)
+(god-leader-define-key "s s" #'+consult-line)
+
+(god-leader-describe-key "TAB" "tabs")
+(god-leader-define-key "TAB 0" #'+tab-select-0)
+(god-leader-define-key "TAB 1" #'+tab-select-1)
+(god-leader-define-key "TAB 2" #'+tab-select-2)
+(god-leader-define-key "TAB 3" #'+tab-select-3)
+(god-leader-define-key "TAB 4" #'+tab-select-4)
+(god-leader-define-key "TAB 5" #'+tab-select-5)
+(god-leader-define-key "TAB 6" #'+tab-select-6)
+(god-leader-define-key "TAB 7" #'+tab-select-7)
+(god-leader-define-key "TAB 8" #'+tab-select-8)
+(god-leader-define-key "TAB 9" #'+tab-select-9)
+(god-leader-define-key "TAB TAB" #'tab-switch)
+(god-leader-define-key "TAB c" #'tab-close)
+(god-leader-define-key "TAB C" #'tab-close-other)
+(god-leader-define-key "TAB d" #'dired-other-tab)      ;; TODO: doesn't work
+(god-leader-define-key "TAB f" #'find-file-other-tab)  ;; TODO: doesn't work
+(god-leader-define-key "TAB n" #'tab-new)
+(god-leader-define-key "TAB o" #'tab-next)
+(god-leader-define-key "TAB r" #'tab-rename)
+(god-leader-define-key "TAB <right>" #'tab-next)
+(god-leader-define-key "TAB <left>" #'tab-previous)
+
+(god-leader-describe-key "i" "insert")
+(god-leader-define-key "i e" #'emojify-insert-emoji)
+(god-leader-define-key "i u" #'insert-char)
+#+end_src
+
+** Old bindings, fallback
+#+begin_src emacs-lisp
+(global-set-key (kbd "<f5>") #'projectile-compile-project)
+(global-set-key (kbd "<f6>") #'+consult-find)
+(global-set-key (kbd "<f7>") #'+consult-ripgrep)
+(global-set-key (kbd "<f8>") #'+consult-line)
+(global-set-key (kbd "<f9>") #'consult-projectile)
+(global-set-key (kbd "<f10>") #'consult-flycheck)
+
+(global-set-key (kbd "C-x b") #'consult-buffer)                                     ;; switch-to-buffer
+(global-set-key (kbd "C-x o") #'switch-window)                                      ;; other-window
+(global-set-key (kbd "C-x k") #'+switch-window-then-kill-current-buffer)            ;; kill-buffer
+(global-set-key (kbd "C-x 0") #'+switch-window-then-delete-window-and-balance)      ;; delete-window
+(global-set-key (kbd "C-x 1") #'switch-window-then-maximize)                        ;; delete-other-windows
+(global-set-key (kbd "C-x 2") #'+switch-window-then-split-below-switch-and-balance) ;; split-window-below
+(global-set-key (kbd "C-x 3") #'+switch-window-then-split-right-switch-and-balance) ;; split-window-right
+#+end_src
+
+* Notes
+** C-x keys:
+|-----+----------------------+---------------------------------------------------+---------|
+| key | orig                 | new                                               | remove? |
+|-----+----------------------+---------------------------------------------------+---------|
+| C-0 |                      |                                                   |         |
+| C-1 |                      |                                                   |         |
+| C-2 |                      |                                                   |         |
+| C-3 |                      |                                                   |         |
+| C-4 |                      |                                                   |         |
+| C-5 |                      |                                                   |         |
+| C-6 |                      |                                                   |         |
+| C-7 |                      |                                                   |         |
+| C-8 |                      |                                                   |         |
+| C-9 |                      |                                                   |         |
+|-----+----------------------+---------------------------------------------------+---------|
+| C-a |                      | save-some-buffers                                 |         |
+| C-g |                      |                                                   |         |
+| C-y |                      |                                                   |         |
+|-----+----------------------+---------------------------------------------------+---------|
+| 0   | delete-window        | switch-window-then-delete-window-and-balance      |         |
+| 1   | delete-other-windows | switch-window-then-maximize                       |         |
+| 2   | split-window-below   | switch-window-then-split-below-switch-and-balance |         |
+| 3   | split-window-right   | switch-window-then-split-right-switch-and-balance |         |
+| 7   |                      |                                                   |         |
+| 9   |                      |                                                   |         |
+|-----+----------------------+---------------------------------------------------+---------|
+| c   |                      |                                                   |         |
+| g   |                      |                                                   |         |
+| j   |                      |                                                   |         |
+| k   | kill-buffer          | switch-window-then-kill-current-buffer            |         |
+| o   | other-window         | switch-window                                     |         |
+| w   |                      |                                                   |         |
+| y   |                      |                                                   |         |
+|-----+----------------------+---------------------------------------------------+---------|
+
+** Navigation
+
+left/right:
+  - char
+  - word
+next/previous:
+  - line
+forward/backward:
+  - char
+  - word
+  - line
+  - sentence
+  - paragraph
+
+|-------+------------+-----------------|
+|       | Ctrl       | Meta            |
+|-------+------------+-----------------|
+| f     | forw char  | forw word       |
+| b     | back char  | back word       |
+| n     | next line  | forw paragraph* |
+| p     | prev line  | back paragraph* |
+| e     | line end   | forw sentence   |
+| a     | line begin | back sentence   |
+|-------+------------+-----------------|
+|       | (none)     | Ctrl            |
+|-------+------------+-----------------|
+| right | right char | right word      |
+| left  | left char  | left word       |
+| down  | next line  | forw paragraph  |
+| up    | prev line  | back paragraph  |
+|-------+------------+-----------------|
