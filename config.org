@@ -293,6 +293,12 @@
 
 ** Minor modes
 #+BEGIN_SRC emacs-lisp
+  (menu-bar-mode 0)
+  (tool-bar-mode 0)
+  (tooltip-mode 0)
+  (when window-system
+    (scroll-bar-mode 0))
+
   ;; (cua-mode t)
   (column-number-mode t)
   (line-number-mode t)
@@ -306,17 +312,18 @@
   (when window-system
     (global-hl-line-mode t))
 
-  (menu-bar-mode 0)
-  (tool-bar-mode 0)
-  (tooltip-mode 0)
-  (when window-system
-    (scroll-bar-mode 0))
-
   (global-page-break-lines-mode t)
   (global-diff-hl-mode t)
   (beginend-global-mode t)
 #+END_SRC
 
+** Time
+#+BEGIN_SRC emacs-lisp
+  (setq display-time-24hr-format t)
+  (setq display-time-day-and-date t)
+  (display-time-mode t)
+
+#+END_SRC
 ** CMD line
 #+BEGIN_SRC emacs-lisp
   (add-to-list 'command-switch-alist '("diff" . havner/command-line-diff))
@@ -530,7 +537,7 @@
                              ))
 
   (require 'flycheck-pycheckers)
-  (setq flycheck-pycheckers-checkers '(pep8))
+  (setq flycheck-pycheckers-checkers '(pylint pep8 flake8))
   (setq flycheck-pycheckers-max-line-length 120)
   (with-eval-after-load 'flycheck
     (add-hook 'flycheck-mode-hook #'flycheck-pycheckers-setup))
@@ -581,7 +588,7 @@
 
 ** TODO ORG (from hrs, concat, capture, minted, instapaper, etc)
 #+BEGIN_SRC emacs-lisp
-  (setq process-connection-type nil)
+  (setq process-connection-type nil)  ;; makes it possible to use xdg-open
 
   (setq org-directory "~/Dropbox/Documents/org")
   (setq org-agenda-files '("~/Dropbox/Documents/org/index.org"))
@@ -672,7 +679,7 @@
 ** Python
 #+BEGIN_SRC emacs-lisp
   (defvaralias 'python-indent-offset 'tab-width)
-  (smart-tabs-insinuate 'python)
+  ;; (smart-tabs-insinuate 'python)
 
   (add-hook 'python-mode-hook (lambda nil
                                 (flycheck-mode t)
