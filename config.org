@@ -321,6 +321,7 @@
 #+BEGIN_SRC emacs-lisp
   (setq display-time-24hr-format t)
   (setq display-time-day-and-date t)
+  (setq display-time-default-load-average nil)
   (display-time-mode t)
 
 #+END_SRC
@@ -414,6 +415,9 @@
 ** Projectile
 #+BEGIN_SRC emacs-lisp
   (projectile-mode t)
+
+  (setq projectile-mode-line '(:eval (format " P[%s]" (projectile-project-name))))
+
 #+END_SRC
 
 ** Helm
@@ -630,6 +634,29 @@
                '("el" "#+BEGIN_SRC emacs-lisp\n?\n#+END_SRC"))
   (add-to-list 'org-structure-template-alist
                '("t" "#+TITLE: ?"))
+#+END_SRC
+
+** Delight (free your modeline)
+#+BEGIN_SRC emacs-lisp
+  (delight '(
+             (beginend-global-mode nil "beginend")
+             (beginend-bs-mode nil "beginend")
+             (beginend-prog-mode nil "beginend")
+             (beginend-dired-mode nil "beginend")
+             (beginend-org-agenda-mode nil "beginend")
+             (beginend-compilation-mode nil "beginend")
+             (beginend-magit-status-mode nil "beginend")
+             (org-indent-mode nil "org-indent")
+             (company-mode nil "company")
+             (helm-mode nil "helm-mode")
+             (page-break-lines-mode nil "page-break-lines")
+             (subword-mode nil "subword")
+             (auto-revert-mode nil "autorevert")
+             (auto-fill-function nil "simple")
+             (abbrev-mode nil "abbrev")
+             (helm-gtags-mode nil "helm-gtags")
+             (paredit-mode nil "paredit")
+             ))
 #+END_SRC
 
 * Programming modes
