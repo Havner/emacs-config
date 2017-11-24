@@ -10,6 +10,8 @@
 #+BEGIN_SRC emacs-lisp
   (add-to-list 'load-path "~/.emacs.d/helpa/emacs-color-theme-solarized")
   (require 'solarized-definitions)
+  (add-to-list 'load-path "~/.emacs.d/helpa/spacemacs-theme")
+  (require 'spacemacs-common)
 #+END_SRC
 
 * Functions
@@ -130,80 +132,99 @@
              (insert (current-kill 0)))))
 #+END_SRC
 
-** Solarized
+** Themes
 #+BEGIN_SRC emacs-lisp
-  (defun havner/solarized-dark-load()
-    "Load solarized dark"
+  (defun havner/disable-themes ()
+    (interactive)
+    (disable-theme 'solarized)
+    (disable-theme 'sanityinc-solarized-dark)
+    (disable-theme 'sanityinc-solarized-light)
+    (disable-theme 'solarized-dark)
+    (disable-theme 'solarized-light)
+    (disable-theme 'spacemacs-dark)
+    (disable-theme 'spacemacs-light))
+
+  (defun havner/solarized-dark-load ()
     (setq frame-background-mode 'dark)
     (mapc 'frame-set-background-mode (frame-list))
     (load-theme 'solarized t))
-  (defun havner/solarized-light-load()
-    "Load solarized light"
+  (defun havner/solarized-light-load ()
     (setq frame-background-mode 'light)
     (mapc 'frame-set-background-mode (frame-list))
     (load-theme 'solarized t))
-  (defun havner/solarized-dark()
-    "Reload solarized as dark"
+  (defun havner/solarized-dark ()
     (interactive)
-    (disable-theme 'solarized)
-    (havner/solarized-dark-load))
-  (defun havner/solarized-light()
-    "Reload solarized as light"
+    (havner/disable-themes)
+    (havner/solarized-dark-load)
+    (powerline-reset))
+  (defun havner/solarized-light ()
     (interactive)
-    (disable-theme 'solarized)
-    (havner/solarized-light-load))
-  (defun havner/solarized-toggle()
+    (havner/disable-themes)
+    (havner/solarized-light-load)
+    (powerline-reset))
+  (defun havner/solarized-toggle ()
     "Toggle solarized mode"
     (interactive)
     (if (eq frame-background-mode 'dark)
         (havner/solarized-light)
       (havner/solarized-dark)))
 
-  (defun havner/solarized2-dark-load()
-    "Load solarized2 dark"
+  (defun havner/solarized2-dark-load ()
     (load-theme 'sanityinc-solarized-dark))
-  (defun havner/solarized2-light-load()
-    "Load solarized2 light"
+  (defun havner/solarized2-light-load ()
     (load-theme 'sanityinc-solarized-light))
-  (defun havner/solarized2-dark()
-    "Reload solarized2 dark"
+  (defun havner/solarized2-dark ()
     (interactive)
-    (disable-theme 'sanityinc-solarized-dark)
-    (disable-theme 'sanityinc-solarized-light)
-    (havner/solarized2-dark-load))
-  (defun havner/solarized2-light()
-    "Reload solarized2 light"
+    (havner/disable-themes)
+    (havner/solarized2-dark-load)
+    (powerline-reset))
+  (defun havner/solarized2-light ()
     (interactive)
-    (disable-theme 'sanityinc-solarized-dark)
-    (disable-theme 'sanityinc-solarized-light)
-    (havner/solarized2-light-load))
+    (havner/disable-themes)
+    (havner/solarized2-light-load)
+    (powerline-reset))
 
-  (defun havner/solarized3-dark-load()
-    "Load solarized3 dark"
+  (defun havner/solarized3-dark-load ()
     (havner/solarized3-settings)
     (load-theme 'solarized-dark t))
-  (defun havner/solarized3-light-load()
-    "Load solarized3 light"
+  (defun havner/solarized3-light-load ()
     (havner/solarized3-settings)
     (load-theme 'solarized-light t))
-  (defun havner/solarized3-dark()
-    "Reload solarized3 as dark"
+  (defun havner/solarized3-dark ()
     (interactive)
-    (disable-theme 'solarized-dark)
-    (disable-theme 'solarized-light)
-    (havner/solarized3-dark-load))
-  (defun havner/solarized3-light()
-    "Reload solarized3 as light"
+    (havner/disable-themes)
+    (havner/solarized3-dark-load)
+    (powerline-reset))
+  (defun havner/solarized3-light ()
     (interactive)
-    (disable-theme 'solarized-dark)
-    (disable-theme 'solarized-light)
-    (havner/solarized3-light-load))
+    (havner/disable-themes)
+    (havner/solarized3-light-load)
+    (powerline-reset))
+
+  (defun havner/spacemacs-dark-load ()
+    (havner/spacemacs-settings)
+    (load-theme 'spacemacs-dark))
+  (defun havner/spacemacs-light-load ()
+    (havner/spacemacs-settings)
+    (load-theme 'spacemacs-light))
+  (defun havner/spacemacs-dark ()
+    (interactive)
+    (havner/disable-themes)
+    (havner/spacemacs-dark-load)
+    (powerline-reset))
+  (defun havner/spacemacs-light ()
+    (interactive)
+    (havner/disable-themes)
+    (havner/spacemacs-light-load)
+    (powerline-reset))
 #+END_SRC
 
 * Configuration
-** Solarized
+** Themes
 #+BEGIN_SRC emacs-lisp
-  (defun havner/solarized3-settings()
+  (setq solarized-termcolors 16)
+
+  (defun havner/solarized3-settings ()
     "Load solarized3 settings"
     (setq solarized-use-variable-pitch nil)
     (setq solarized-height-plus-1 1.0)
@@ -212,14 +233,19 @@
     (setq solarized-height-plus-4 1.0)
     (setq solarized-high-contrast-mode-line nil))
 
-  (setq solarized-termcolors 16)
+  (defun havner/spacemacs-settings ()
+    (setq spacemacs-theme-comment-bg nil)
+    (setq spacemacs-theme-comment-italic t)
+    (setq spacemacs-theme-org-height nil))
+
   (cond (window-system
-         (havner/solarized-dark-load))
+         (havner/spacemacs-dark-load))
         ((equal (getenv "TERM") "xterm-256color")
          (havner/solarized-dark-load))
         ((equal (getenv "TERM") "xterm-16color")
          (havner/solarized-dark-load)))
 #+END_SRC
+
 ** Misc options
 #+BEGIN_SRC emacs-lisp
   (fset 'yes-or-no-p 'y-or-n-p)                ;; Treat 'y' or <CR> as yes, 'n' as no.
@@ -253,6 +279,7 @@
 ** GUI options
 #+BEGIN_SRC emacs-lisp
   (setq use-dialog-box nil)
+  ;; (setq custom-raised-buttons nil)
   (setq default-frame-alist
         '((width . 150)
           (height . 50)
@@ -309,8 +336,8 @@
   (global-auto-revert-mode t)
   ;; (global-prettify-symbols-mode t)
   (global-subword-mode t)
-  (when window-system
-    (global-hl-line-mode t))
+  ;; (when window-system
+  ;;   (global-hl-line-mode t))
 
   (global-page-break-lines-mode t)
   (global-diff-hl-mode t)
@@ -325,6 +352,7 @@
   (display-time-mode t)
 
 #+END_SRC
+
 ** CMD line
 #+BEGIN_SRC emacs-lisp
   (add-to-list 'command-switch-alist '("diff" . havner/command-line-diff))
@@ -431,6 +459,8 @@
     (setq helm-split-window-default-side 'right)  ;; other
     (setq helm-candidate-number-limit 1000)
     (setq helm-findutils-search-full-path t)
+    (setq helm-bookmark-show-location t)
+    ;; (setq helm-buffer-max-length 35)
     (setq helm-boring-buffer-regexp-list
           '("\\` "
             "\\`\\*helm"
@@ -469,7 +499,7 @@
                                     global-semantic-idle-scheduler-mode
                                     global-semanticdb-minor-mode
                                     global-semantic-idle-summary-mode
-                                    ;global-semantic-idle-completions-mode
+                                    ;; global-semantic-idle-completions-mode
                                     ))
   (setq semanticdb-default-save-directory "~/.semanticdb")
 
@@ -559,12 +589,6 @@
     (setq magit-completing-read-function #'magit-ido-completing-read))
 #+END_SRC
 
-** Multi term
-#+BEGIN_SRC emacs-lisp
-  (setq multi-term-dedicated-select-after-open-p t)
-  (setq multi-term-dedicated-window-height 20)
-#+END_SRC
-
 ** Compile
 #+BEGIN_SRC emacs-lisp
   (setq compilation-read-command nil)
@@ -617,7 +641,6 @@
     (progn
       (setq org-ellipsis "⤵")
       (add-hook 'org-mode-hook (lambda nil
-                                 (stripe-table-mode t)
                                  (org-bullets-mode t)))))
   (require 'ox-twbs)
 
@@ -633,7 +656,9 @@
   (add-to-list 'org-structure-template-alist
                '("el" "#+BEGIN_SRC emacs-lisp\n?\n#+END_SRC"))
   (add-to-list 'org-structure-template-alist
-               '("t" "#+TITLE: ?"))
+               '("tt" "#+TITLE: ?"))
+  (add-to-list 'org-structure-template-alist
+               '("at" "#+AUTHOR: ?"))
 #+END_SRC
 
 ** Delight (free your modeline)
@@ -663,6 +688,7 @@
 #+BEGIN_SRC emacs-lisp
   (add-hook 'prog-mode-hook (lambda nil
                               (nlinum-mode t)
+                              (hl-line-mode t)
                               (setq show-trailing-whitespace t)))
 #+END_SRC
 
@@ -861,6 +887,7 @@ forward/backward:
 
 ** Builtin modules
 #+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-x C-j") 'dired-jump)
   (global-set-key (kbd "C-x t") 'toggle-truncate-lines)
   (global-set-key (kbd "C-c f") 'other-frame)
   (global-set-key (kbd "C-c F") 'make-frame)
@@ -889,18 +916,18 @@ forward/backward:
   (global-set-key (kbd "C-x F") 'havner/find-file-as-sudo)
 
   (global-set-key (kbd "C-x w") 'windresize)
-  (global-set-key (kbd "C-c b") 'bs-show)
+  (global-set-key (kbd "C-x C-b") 'bs-show)
   (global-set-key (kbd "C-c h") 'idle-highlight-mode)
   (global-set-key (kbd "C-c L") 'nlinum-mode)
   (global-set-key (kbd "C-c m") 'magit-status)
   (global-set-key (kbd "C-c C-m") 'magit-log-head)
   (global-set-key (kbd "C-c g") 'magit-dispatch-popup)
   (global-set-key (kbd "C-c C-g") 'magit-file-popup)
-  (global-set-key (kbd "<C-tab>") 'multi-term-next)
-  (global-set-key (kbd "C-`") 'multi-term-dedicated-toggle)
+  (global-set-key (kbd "C-c t") 'sane-term)
+  (global-set-key (kbd "C-c T") 'sane-term-create)
+  (global-set-key (kbd "C-`") 'sane-term)
   (global-set-key (kbd "<C-f5>") 'projectile-compile-project)
 
-  (global-set-key (kbd "C-c n") 'bm-show-all)
   (global-set-key (kbd "<C-f2>") 'bm-toggle)
   (global-set-key (kbd "<f2>")   'bm-next)
   (global-set-key (kbd "<S-f2>") 'bm-previous)
@@ -920,17 +947,22 @@ forward/backward:
          (global-set-key (kbd "<f1>") 'helm-resume)
          (global-set-key (kbd "<f8>") 'helm-occur)
          (global-set-key (kbd "<f9>") 'helm-find)
+         (global-set-key (kbd "<C-f9>") 'helm-locate)
          (global-set-key (kbd "C-x b") 'helm-buffers-list)
          (global-set-key (kbd "C-c i") 'helm-flyspell-correct)
-         (global-set-key (kbd "C-c t") 'helm-mt)
+         (global-set-key (kbd "C-c b") 'helm-bookmarks)
+         (global-set-key (kbd "C-c n") 'helm-bm)
+         (global-set-key (kbd "C-.") 'helm-imenu)
          (global-set-key (kbd "C-,") 'helm-imenu-in-all-buffers))
         ((eq ido-mode 'both)
          (global-set-key (kbd "M-x") 'smex)
          (global-set-key (kbd "M-X") 'smex-major-mode-commands)
-         (global-set-key (kbd "C-c t") 'multi-term)
+         (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
+         (global-set-key (kbd "C-c n") 'bm-show-all)
          (global-set-key (kbd "C-,") 'ido-imenu-anywhere))
         (t
-         (global-set-key (kbd "C-c t") 'multi-term)
+         (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
+         (global-set-key (kbd "C-c n") 'bm-show-all)
          (global-set-key (kbd "C-,") 'imenu-anywhere)))
 
   (eval-after-load 'company
