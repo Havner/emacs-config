@@ -25,6 +25,18 @@
         (find-file config))))
   (global-set-key (kbd "<f12>") 'havner/open-config-org)
 
+  (defun havner/set-font (&optional arg)
+    (interactive "NFont size: ")
+    (let ((font-to-set (concat "Ubuntu Mono-" (number-to-string arg))))
+      (set-face-attribute 'default nil :font font-to-set)
+      (powerline-reset)))
+
+  (defun havner/set-font-size (&optional arg)
+    (interactive "NFont size: ")
+    (set-face-attribute 'default nil :height (* arg 10))
+    (powerline-reset))
+  (global-set-key (kbd "<C-f12>") 'havner/set-font-size)
+
   (defun havner/match-paren (arg)
     "Go to the matching paren if on a paren; otherwise insert %."
     (interactive "p")
@@ -220,6 +232,35 @@
 #+END_SRC
 
 * Configuration
+** GOD mode
+#+BEGIN_SRC emacs-lisp
+  (god-mode)
+
+  (defun my-update-cursor ()
+    "Toggle cursor type on god-local-mode"
+    (setq cursor-type (if (or god-local-mode)
+                          'box
+                        'bar)))
+
+  (defun god-toggle-on-overwrite ()
+    "Toggle god-mode on overwrite-mode."
+    (if (bound-and-true-p overwrite-mode)
+        (god-local-mode-pause)
+      (god-local-mode-resume)))
+
+  (when (bound-and-true-p god-global-mode)
+    (add-hook 'god-mode-enabled-hook 'my-update-cursor)
+    (add-hook 'god-mode-disabled-hook 'my-update-cursor)
+    (add-to-list 'god-exempt-major-modes 'term-mode)
+    (add-to-list 'god-exempt-major-modes 'bs-mode)
+
+    (require 'god-mode-isearch)
+
+    (add-hook 'overwrite-mode-hook 'god-toggle-on-overwrite)
+    (add-hook 'god-mode-enabled-hook (lambda nil (interactive)
+                                       (overwrite-mode 0))))
+#+END_SRC
+
 ** Themes
 #+BEGIN_SRC emacs-lisp
   (setq solarized-termcolors 16)
@@ -246,6 +287,20 @@
          (havner/solarized-dark-load)))
 #+END_SRC
 
+** Dashboard
+#+BEGIN_SRC emacs-lisp
+  ;; (setq dashboard-banner-logo-title "Abandon hope all ye who enter here")
+  ;; ;; (setq dashboard-startup-banner "~/path/to/image.png")
+  ;; (setq dashboard-items '(
+  ;;                         (agenda . 5)
+  ;;                         (bookmarks . 5)
+  ;;                         (recents  . 5)
+  ;;                         (projects . 5)
+  ;;                         (registers . 5)
+  ;;                         ))
+  ;; (dashboard-setup-startup-hook)
+#+END_SRC
+
 ** Misc options
 #+BEGIN_SRC emacs-lisp
   (fset 'yes-or-no-p 'y-or-n-p)                ;; Treat 'y' or <CR> as yes, 'n' as no.
@@ -261,6 +316,8 @@
   (setq show-paren-style 'mixed)
   (setq Man-width 114)
   (setq gc-cons-threshold 20000000)
+  (setq calendar-week-start-day 1)
+  ;; (setq split-width-threshold 120)
   (when window-system
     (setq confirm-kill-emacs 'y-or-n-p))
   (when (eq window-system 'x)
@@ -336,6 +393,7 @@
   (global-auto-revert-mode t)
   ;; (global-prettify-symbols-mode t)
   (global-subword-mode t)
+  (recentf-mode t)
   ;; (when window-system
   ;;   (global-hl-line-mode t))
 
@@ -350,7 +408,6 @@
   (setq display-time-day-and-date t)
   (setq display-time-default-load-average nil)
   (display-time-mode t)
-
 #+END_SRC
 
 ** CMD line
@@ -372,11 +429,20 @@
 #+BEGIN_SRC emacs-lisp
   (require 'redo+)                  ;; autoloads empty, load manually
   (setq undo-no-redo t)
+
+  (global-undo-tree-mode t)
 #+END_SRC
 
 ** Point-undo
 #+BEGIN_SRC emacs-lisp
   (require 'point-undo)
+#+END_SRC
+
+** AVY / Switch window
+#+BEGIN_SRC emacs-lisp
+  (setq avy-keys (append (number-sequence ?a ?z) (number-sequence ?A ?Z)))
+  (setq avy-background t)
+  (setq switch-window-increase 6)
 #+END_SRC
 
 ** Buffer Show
@@ -432,6 +498,14 @@
          (setq whitespace-style '(face trailing lines-tail tab-mark))))
 #+END_SRC
 
+** Zoom
+#+BEGIN_SRC emacs-lisp
+  ;; (setq zoom-size '(0.618 . 0.618))
+  ;; (setq zoom-ignored-buffer-name-regexps '("^*helm"))
+  ;; (setq zoom-ignored-major-modes '(ediff-mode dired-mode))  ;; not working for Ediff :-(
+  ;; (zoom-mode t)
+#+END_SRC
+
 ** Desktop save
 #+BEGIN_SRC emacs-lisp
   (when (eq window-system 'x)
@@ -445,13 +519,17 @@
   (projectile-mode t)
 
   (setq projectile-mode-line '(:eval (format " P[%s]" (projectile-project-name))))
+#+END_SRC
 
+** Helm/IDO/IVY choose
+#+BEGIN_SRC emacs-lisp
+  (helm-mode t)
+  ;; (ido-mode t)
+  ;; (ivy-mode t)
 #+END_SRC
 
 ** Helm
 #+BEGIN_SRC emacs-lisp
-  (helm-mode t)
-
   (when (eq helm-mode t)
     (helm-adaptive-mode t)
     (helm-descbinds-mode t)
@@ -469,11 +547,8 @@
             "\\`\\*buffer-selection")))
 #+END_SRC
 
-** IDO (if not helm)
+** IDO
 #+BEGIN_SRC emacs-lisp
-  (unless (eq helm-mode t)
-    (ido-mode t))
-
   (when (eq ido-mode 'both)
     (ido-vertical-mode t)
     (ido-ubiquitous-mode t)
@@ -487,6 +562,12 @@
     ;; (setq ido-enable-flex-matching t)
     ;; (setq ido-file-extensions-order '(".org" ".el" "t"))
   )
+#+END_SRC
+
+** IVY
+#+BEGIN_SRC emacs-lisp
+  (when (eq ivy-mode t)
+    (setq ivy-use-virtual-buffers t))
 #+END_SRC
 
 ** EDE/Semantic
@@ -530,7 +611,7 @@
   (setq company-semantic-begin-after-member-access nil)
 #+END_SRC
 
-** GNU global
+** gtags / helm-gtags / councel-gtags
 #+BEGIN_SRC emacs-lisp
   (setq helm-gtags-use-input-at-cursor t)
 #+END_SRC
@@ -545,8 +626,8 @@
 #+BEGIN_SRC emacs-lisp
   (setq dired-dwim-target t)
   (setq dired-listing-switches "-alhB --group-directories-first")
-  (if (eq system-type 'darwin)
-      (setq insert-directory-program "gls"))              ; fix for OSX dired
+  (if (eq system-type 'darwin)                ;; fix for OSX dired
+      (setq insert-directory-program "gls"))
 #+END_SRC
 
 ** EDiff
@@ -586,7 +667,7 @@
   ;; (setq magit-repository-directories '(("~/devel/" . 2)))
 
   (if (eq ido-mode 'both)
-    (setq magit-completing-read-function #'magit-ido-completing-read))
+    (setq magit-completing-read-function 'magit-ido-completing-read))
 #+END_SRC
 
 ** Compile
@@ -597,8 +678,8 @@
 
 ** GDB
 #+BEGIN_SRC emacs-lisp
-  ;; (setq gdb-many-windows t)
-  ;; (setq gdb-show-main t)
+  (setq gdb-many-windows t)
+  (setq gdb-show-main t)
 #+END_SRC
 
 ** Speedbar
@@ -614,13 +695,19 @@
   ;; (setq speedbar-use-images nil)
 #+END_SRC
 
+** PDF
+#+BEGIN_SRC emacs-lisp
+  (when (eq window-system 'x)
+      (pdf-tools-install))
+#+END_SRC
+
 ** TODO ORG (from hrs, concat, capture, minted, instapaper, etc)
 #+BEGIN_SRC emacs-lisp
   (setq process-connection-type nil)  ;; makes it possible to use xdg-open
 
   (setq org-directory "~/Dropbox/Documents/org")
   (setq org-agenda-files '("~/Dropbox/Documents/org/index.org"))
-  (setq org-default-notes-file "~/Dropbox/Documents/org/capture.org")
+  (setq org-default-notes-file "~/Dropbox/Documents/org/index.org")
   (setq org-mobile-directory "~/Dropbox/Apps/MobileOrg")
   (setq org-mobile-inbox-for-pull "~/Dropbox/Documents/org/from-mobile.org")
   (setq org-log-done 'time)
@@ -639,7 +726,7 @@
 
   (unless (eq system-type 'cygwin)
     (progn
-      (setq org-ellipsis "⤵")
+      ;; (setq org-ellipsis "⤵")
       (add-hook 'org-mode-hook (lambda nil
                                  (org-bullets-mode t)))))
   (require 'ox-twbs)
@@ -659,6 +746,8 @@
                '("tt" "#+TITLE: ?"))
   (add-to-list 'org-structure-template-alist
                '("at" "#+AUTHOR: ?"))
+
+  (define-key org-mode-map [(control ?\')] nil)
 #+END_SRC
 
 ** Delight (free your modeline)
@@ -681,6 +770,7 @@
              (abbrev-mode nil "abbrev")
              (helm-gtags-mode nil "helm-gtags")
              (paredit-mode nil "paredit")
+             (undo-tree-mode nil "undo-tree")
              ))
 #+END_SRC
 
@@ -721,9 +811,12 @@
                   company-keywords
                   company-files
                   company-ispell))
-    (if (eq helm-mode t)
-        (helm-gtags-mode t)
-      (ggtags-mode t)))
+    (cond ((eq helm-mode t)
+           (helm-gtags-mode t))
+          ((eq ivy-mode t)
+           (counsel-gtags-mode t))
+          (t
+           (ggtags-mode t))))
 
   (add-hook 'c-mode-hook 'c-devel-hook)
   (add-hook 'c++-mode-hook 'c-devel-hook)
@@ -756,7 +849,6 @@
 
   (add-hook 'emacs-lisp-mode-hook (lambda nil
                                     (setq indent-tabs-mode nil)
-                                    ;(eldoc-mode t)
                                     (paredit-mode t)
                                     (rainbow-delimiters-mode t)
                                     ))
@@ -837,66 +929,48 @@ forward/backward:
 
 ** Undo/Redo
 #+BEGIN_SRC emacs-lisp
-  (global-set-key (kbd "C-c u") 'undo)     ;; REDO+
-  (global-set-key (kbd "C-c r") 'redo)
-
-  ;; (global-set-key (kbd "C-z") 'undo)    ;; add others for symetry
-  (global-set-key (kbd "C-M-z") 'redo)
-  (global-set-key (kbd "C-S-z") 'redo)
-  ;; (global-set-key (kbd "C-_") 'undo)
-  (global-set-key (kbd "C-M-_") 'redo)
+  ;; (global-set-key (kbd "C-_") 'undo)    ;; add others for symetry
+  (global-set-key (kbd "M-_") 'redo)
   ;; (global-set-key (kbd "C-/") 'undo)
   (global-set-key (kbd "C-?") 'redo)
-#+END_SRC
+  ;; (global-set-key (kbd "C-z") 'undo)
+  (global-set-key (kbd "M-z") 'redo)
+  #+END_SRC
 
 ** Windows/buffers
 #+BEGIN_SRC emacs-lisp
-  (global-set-key (kbd "<f6>") 'point-undo)              ;; do I need this?
+  (global-set-key (kbd "<f6>") 'point-undo)              ;; do I need this? learn mark
   (global-set-key (kbd "<f7>") 'point-redo)
 
-  (global-set-key (kbd "C-x <left>") 'windmove-left)     ;; WINDMOVE / BI
-  (global-set-key (kbd "C-x <right>") 'windmove-right)   ;; terminal modes
+  (global-set-key (kbd "C-x <left>") 'windmove-left)
+  (global-set-key (kbd "C-x <right>") 'windmove-right)
   (global-set-key (kbd "C-x <up>") 'windmove-up)
   (global-set-key (kbd "C-x <down>") 'windmove-down)
-  ;; (global-set-key (kbd "<M-left>") 'windmove-left)       ;; WINDMOVE / BI
-  ;; (global-set-key (kbd "<M-right>") 'windmove-right)     ;; window modes
-  ;; (global-set-key (kbd "<M-up>") 'windmove-up)
-  ;; (global-set-key (kbd "<M-down>") 'windmove-down)
 
-  (global-set-key (kbd "C-c <up>") 'buf-move-up)         ;; BUFFER-MOVE
-  (global-set-key (kbd "C-c <down>") 'buf-move-down)     ;; terminal modes
+  (global-set-key (kbd "C-c <up>") 'buf-move-up)
+  (global-set-key (kbd "C-c <down>") 'buf-move-down)
   (global-set-key (kbd "C-c <left>") 'buf-move-left)
   (global-set-key (kbd "C-c <right>") 'buf-move-right)
-  ;; (global-set-key (kbd "<M-S-up>") 'buf-move-up)         ;; BUFFER-MOVE
-  ;; (global-set-key (kbd "<M-S-down>") 'buf-move-down)     ;; window modes
-  ;; (global-set-key (kbd "<M-S-left>") 'buf-move-left)
-  ;; (global-set-key (kbd "<M-S-right>") 'buf-move-right)
-#+END_SRC
-
-** Remap Emacs defaults
-#+BEGIN_SRC emacs-lisp
-  (global-set-key (kbd "C-x d") 'list-directory)
-  (global-set-key (kbd "C-x C-d") 'dired)
-  ;; (global-set-key (kbd "C-s") 'isearch-forward-regexp)
-  ;; (global-set-key (kbd "C-r") 'isearch-backward-regexp)
-  (global-set-key (kbd "C-x k") 'havner/kill-current-buffer)
-  (global-set-key (kbd "C-x 0") 'havner/delete-window-and-balance)
-  (global-set-key (kbd "C-x 2") 'havner/split-window-below-and-switch)
-  (global-set-key (kbd "C-x 3") 'havner/split-window-right-and-switch)
 #+END_SRC
 
 ** Builtin modules
 #+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-x d") 'list-directory)
+  (global-set-key (kbd "C-x C-d") 'dired)
+  (global-set-key (kbd "C-s") 'isearch-forward-regexp)
+  (global-set-key (kbd "C-r") 'isearch-backward-regexp)
+  (global-set-key (kbd "C-c k") 'havner/kill-buffer-and-window-and-balance)
+  (global-set-key (kbd "C-x k") 'havner/kill-current-buffer)
+  (global-set-key (kbd "C-x 0") 'havner/delete-window-and-balance)
+  (global-set-key (kbd "C-x 2") 'havner/split-window-below-and-switch)
+  (global-set-key (kbd "C-x 3") 'havner/split-window-right-and-switch)
+
   (global-set-key (kbd "C-x C-j") 'dired-jump)
   (global-set-key (kbd "C-x t") 'toggle-truncate-lines)
   (global-set-key (kbd "C-c f") 'other-frame)
-  (global-set-key (kbd "C-c F") 'make-frame)
-  (global-set-key (kbd "C-c k") 'havner/kill-buffer-and-window-and-balance)
-  (global-set-key (kbd "C-c e") 'eval-region)
-  (global-set-key (kbd "C-c E") 'eval-buffer)
+  (global-set-key (kbd "C-c C-f") 'make-frame)
   (global-set-key (kbd "C-c w") 'whitespace-mode)
-  (global-set-key (kbd "C-c S") 'speedbar-get-focus)
-  (global-set-key (kbd "C-c j") 'semantic-ia-fast-jump)
+  (global-set-key (kbd "C-x j") 'semantic-ia-fast-jump)
   (global-set-key (kbd "C-c l") 'org-store-link)
   (global-set-key (kbd "C-c s") 'org-capture)
   (global-set-key (kbd "C-c a") 'org-agenda)
@@ -912,21 +986,27 @@ forward/backward:
 
 ** External modules
 #+BEGIN_SRC emacs-lisp
-  (global-set-key (kbd "%") 'havner/match-paren)
+  ;; (global-set-key (kbd "%") 'havner/match-paren)
   (global-set-key (kbd "C-x F") 'havner/find-file-as-sudo)
-
+  (global-set-key (kbd "C-x o") 'switch-window)
   (global-set-key (kbd "C-x w") 'windresize)
   (global-set-key (kbd "C-x C-b") 'bs-show)
   (global-set-key (kbd "C-c h") 'idle-highlight-mode)
-  (global-set-key (kbd "C-c L") 'nlinum-mode)
+  (global-set-key (kbd "C-c C-l") 'nlinum-mode)
   (global-set-key (kbd "C-c m") 'magit-status)
   (global-set-key (kbd "C-c C-m") 'magit-log-head)
   (global-set-key (kbd "C-c g") 'magit-dispatch-popup)
   (global-set-key (kbd "C-c C-g") 'magit-file-popup)
   (global-set-key (kbd "C-c t") 'sane-term)
-  (global-set-key (kbd "C-c T") 'sane-term-create)
+  (global-set-key (kbd "C-c C-t") 'sane-term-create)
   (global-set-key (kbd "C-`") 'sane-term)
   (global-set-key (kbd "<C-f5>") 'projectile-compile-project)
+
+  (global-set-key (kbd "C-'") 'avy-goto-word-1)
+  (global-set-key (kbd "C-;") 'avy-pop-mark)
+  (define-key isearch-mode-map (kbd "C-'") 'avy-isearch)
+  (eval-after-load 'god-mode-isearch
+    (define-key god-mode-isearch-map (kbd "'") 'avy-isearch))
 
   (global-set-key (kbd "<C-f2>") 'bm-toggle)
   (global-set-key (kbd "<f2>")   'bm-next)
@@ -934,9 +1014,18 @@ forward/backward:
   (global-set-key (kbd "<left-fringe> <mouse-5>") 'bm-next-mouse)
   (global-set-key (kbd "<left-fringe> <mouse-4>") 'bm-previous-mouse)
   (global-set-key (kbd "<left-fringe> <mouse-1>") 'bm-toggle-mouse)
+
+  (eval-after-load 'company
+    '(progn
+       (define-key company-template-field-map (kbd "<tab>") nil)
+       (define-key company-template-field-map '[?\t] nil)
+       (define-key company-template-field-map (kbd "M-n") 'company-template-forward-field)
+       (define-key company-template-nav-map (kbd "<tab>") nil)
+       (define-key company-template-nav-map '[?\t] nil)
+       (define-key company-template-nav-map (kbd "M-n") 'company-template-forward-field)))
 #+END_SRC
 
-** Helm/IDO cond
+** Helm/IDO/IVY cond
 #+BEGIN_SRC emacs-lisp
   (cond ((eq helm-mode t)
          (global-set-key (kbd "M-x") 'helm-M-x)
@@ -959,10 +1048,33 @@ forward/backward:
          (global-set-key (kbd "M-X") 'smex-major-mode-commands)
          (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
          (global-set-key (kbd "C-c n") 'bm-show-all)
+         (global-set-key (kbd "C-.") 'ido-imenu-anywhere)
          (global-set-key (kbd "C-,") 'ido-imenu-anywhere))
+        ((eq ivy-mode t)
+         (global-set-key (kbd "C-s") 'swiper)
+         (global-set-key (kbd "<f1>") 'ivy-resume)
+         (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
+         (global-set-key (kbd "C-c n") 'bm-show-all)
+         (global-set-key (kbd "C-.") 'ivy-imenu-anywhere)
+         (global-set-key (kbd "C-,") 'ivy-imenu-anywhere)
+         ;; (global-set-key (kbd "M-x") 'counsel-M-x)
+         ;; (global-set-key (kbd "C-x C-f") 'counsel-find-file)
+         ;; (global-set-key (kbd "<f1> f") 'counsel-describe-function)
+         ;; (global-set-key (kbd "<f1> v") 'counsel-describe-variable)
+         ;; (global-set-key (kbd "<f1> l") 'counsel-find-library)
+         ;; (global-set-key (kbd "<f2> i") 'counsel-info-lookup-symbol)
+         ;; (global-set-key (kbd "<f2> u") 'counsel-unicode-char)
+         ;; (global-set-key (kbd "C-c g") 'counsel-git)
+         ;; (global-set-key (kbd "C-c j") 'counsel-git-grep)
+         ;; (global-set-key (kbd "C-c k") 'counsel-ag)
+         ;; (global-set-key (kbd "C-x l") 'counsel-locate)
+         ;; (global-set-key (kbd "C-S-o") 'counsel-rhythmbox)
+         ;; (define-key minibuffer-local-map (kbd "C-r") 'counsel-minibuffer-history)
+         )
         (t
          (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
          (global-set-key (kbd "C-c n") 'bm-show-all)
+         (global-set-key (kbd "C-.") 'imenu-anywhere)
          (global-set-key (kbd "C-,") 'imenu-anywhere)))
 
   (eval-after-load 'company
@@ -980,10 +1092,38 @@ forward/backward:
          (define-key projectile-mode-map (kbd "<f10>") 'helm-projectile)
        (define-key projectile-mode-map (kbd "<f10>") 'projectile-commander)))
 
-  (eval-after-load 'helm-gtags   ;; regular gtags assigns those automatically
+  ;;;;; regular gtags assign keys automatically
+
+  (eval-after-load 'helm-gtags
     '(progn
        (define-key helm-gtags-mode-map (kbd "M-.") 'helm-gtags-dwim)
        (define-key helm-gtags-mode-map (kbd "M-,") 'helm-gtags-pop-stack)))
+
+  (eval-after-load 'counsel-gtags
+    '(progn
+       (define-key counsel-gtags-mode-map (kbd "M-.") 'counsel-gtags-dwim)
+       (define-key counsel-gtags-mode-map (kbd "M-,") 'counsel-gtags-go-backward)))
+#+END_SRC
+
+** GOD mode
+#+BEGIN_SRC emacs-lisp
+  (when (bound-and-true-p god-global-mode)
+    (global-set-key (kbd "<escape>") 'god-local-mode)
+    (define-key god-local-mode-map (kbd "i") 'god-local-mode)
+    (define-key isearch-mode-map (kbd "<escape>") 'god-mode-isearch-activate)
+    (define-key god-mode-isearch-map (kbd "<escape>") 'god-mode-isearch-disable)
+
+    (global-set-key (kbd "C-x C-1") 'delete-other-windows)
+    (global-set-key (kbd "C-x C-0") 'havner/delete-window-and-balance)
+    (global-set-key (kbd "C-x C-2") 'havner/split-window-below-and-switch)
+    (global-set-key (kbd "C-x C-3") 'havner/split-window-right-and-switch)
+
+    (global-set-key (kbd "C-x k") 'kmacro-keymap)
+    (global-set-key (kbd "C-x C-k") 'havner/kill-current-buffer)
+    (global-set-key (kbd "C-x b") 'bs-show)
+    (global-set-key (kbd "C-x C-b") 'helm-buffers-list)
+    (global-set-key (kbd "C-x o") 'delete-blank-lines)
+    (global-set-key (kbd "C-x C-o") 'switch-window))
 #+END_SRC
 
 * TO BE REMOVED
