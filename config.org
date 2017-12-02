@@ -291,31 +291,30 @@
 
 ** GOD mode
 #+BEGIN_SRC emacs-lisp
-  (god-mode)
+  ;; (god-mode)
+  (require 'god-mode)
+  (require 'god-mode-isearch)
 
-  (defun my-update-cursor ()
+  (defun god/update-cursor ()
     "Toggle cursor type on god-local-mode"
     (setq cursor-type (if (or god-local-mode)
                           'box
                         'bar)))
 
-  (defun god-toggle-on-overwrite ()
+  (defun god/toggle-on-overwrite ()
     "Toggle god-mode on overwrite-mode."
     (if (bound-and-true-p overwrite-mode)
         (god-local-mode-pause)
       (god-local-mode-resume)))
 
-  (when (bound-and-true-p god-global-mode)
-    (add-hook 'god-mode-enabled-hook 'my-update-cursor)
-    (add-hook 'god-mode-disabled-hook 'my-update-cursor)
-    (add-to-list 'god-exempt-major-modes 'term-mode)
-    (add-to-list 'god-exempt-major-modes 'bs-mode)
+  (add-hook 'god-mode-enabled-hook 'god/update-cursor)
+  (add-hook 'god-mode-disabled-hook 'god/update-cursor)
+  (add-to-list 'god-exempt-major-modes 'term-mode)
+  (add-to-list 'god-exempt-major-modes 'bs-mode)
 
-    (require 'god-mode-isearch)
-
-    (add-hook 'overwrite-mode-hook 'god-toggle-on-overwrite)
-    (add-hook 'god-mode-enabled-hook (lambda nil (interactive)
-                                       (overwrite-mode 0))))
+  (add-hook 'overwrite-mode-hook 'god/toggle-on-overwrite)
+  (add-hook 'god-mode-enabled-hook (lambda nil (interactive)
+                                     (overwrite-mode 0)))
 #+END_SRC
 
 ** Dashboard
@@ -998,15 +997,6 @@ forward/backward:
   (global-set-key (kbd "C-s") 'isearch-forward-regexp)
   (global-set-key (kbd "C-r") 'isearch-backward-regexp)
 
-  (global-set-key (kbd "C-x C-o") 'switch-window-then-swap-buffer)             ;; thr 2
-  (global-set-key (kbd "C-x o") 'havner/switch-window-or-windresize)           ;; thr 2
-  (global-set-key (kbd "C-x C-k") 'switch-window-then-kill-buffer-and-window)  ;; thr 1
-  (global-set-key (kbd "C-x k") 'switch-window-then-kill-buffer)               ;; thr 1
-  (global-set-key (kbd "C-x 1") 'switch-window-then-maximize)                  ;; thr 2
-  (global-set-key (kbd "C-x 2") 'switch-window-then-split-below)               ;; thr 1
-  (global-set-key (kbd "C-x 3") 'switch-window-then-split-right)               ;; thr 1
-  (global-set-key (kbd "C-x 0") 'switch-window-then-delete)                    ;; thr 2
-
   (global-set-key (kbd "C-x j") 'semantic-ia-fast-jump)
   (global-set-key (kbd "C-x C-j") 'dired-jump)
   (global-set-key (kbd "C-x t") 'toggle-truncate-lines)
@@ -1028,12 +1018,17 @@ forward/backward:
 
 ** External modules
 #+BEGIN_SRC emacs-lisp
-  (global-set-key (kbd "C-x o") 'switch-window)
-  (global-set-key (kbd "C-x C-o") 'switch-window-then-swap-buffer)
-  (global-set-key (kbd "C-x w") 'windresize)
+  (global-set-key (kbd "C-x C-o") 'switch-window-then-swap-buffer)             ;; thr 2
+  (global-set-key (kbd "C-x o") 'havner/switch-window-or-windresize)           ;; thr 2
+  (global-set-key (kbd "C-x C-k") 'switch-window-then-kill-buffer-and-window)  ;; thr 1
+  (global-set-key (kbd "C-x k") 'switch-window-then-kill-buffer)               ;; thr 1
+  (global-set-key (kbd "C-x 1") 'switch-window-then-maximize)                  ;; thr 2
+  (global-set-key (kbd "C-x 2") 'switch-window-then-split-below)               ;; thr 1
+  (global-set-key (kbd "C-x 3") 'switch-window-then-split-right)               ;; thr 1
+  (global-set-key (kbd "C-x 0") 'switch-window-then-delete)                    ;; thr 2
+
   (global-set-key (kbd "C-x C-b") 'bs-show)
   (global-set-key (kbd "C-x C-F") 'havner/find-file-as-sudo)
-
   (global-set-key (kbd "C-%") 'havner/match-paren)
   (global-set-key (kbd "C-c h") 'highlight-thing-mode)
   (global-set-key (kbd "C-c m") 'magit-status)
@@ -1048,8 +1043,6 @@ forward/backward:
   (global-set-key (kbd "C-'") 'avy-goto-word-1)
   (global-set-key (kbd "C-;") 'avy-pop-mark)
   (define-key isearch-mode-map (kbd "C-'") 'avy-isearch)
-  (eval-after-load 'god-mode-isearch
-    (define-key god-mode-isearch-map (kbd "'") 'avy-isearch))
 
   (global-set-key (kbd "<C-f2>") 'bm-toggle)
   (global-set-key (kbd "<f2>")   'bm-next)
@@ -1150,12 +1143,15 @@ forward/backward:
 
 ** GOD mode
 #+BEGIN_SRC emacs-lisp
-  (when (bound-and-true-p god-global-mode)
-    (global-set-key (kbd "<escape>") 'god-local-mode)
-    (define-key god-local-mode-map (kbd "i") 'god-local-mode)
-    (define-key isearch-mode-map (kbd "<escape>") 'god-mode-isearch-activate)
-    (define-key god-mode-isearch-map (kbd "<escape>") 'god-mode-isearch-disable)
+  (global-set-key (kbd "<escape>") 'god-local-mode)
+  (define-key god-local-mode-map (kbd "i") 'god-local-mode)
 
+  (define-key isearch-mode-map (kbd "<escape>") 'god-mode-isearch-activate)
+  (define-key god-mode-isearch-map (kbd "<escape>") 'god-mode-isearch-disable)
+  (define-key god-mode-isearch-map (kbd "'") 'avy-isearch)
+  (define-key god-mode-isearch-map (kbd "l") 'recenter-top-bottom)
+
+  (when (bound-and-true-p god-global-mode)
     (global-set-key (kbd "C-x o") 'switch-window-then-swap-buffer)             ;; thr 2
     (global-set-key (kbd "C-x C-o") 'havner/switch-window-or-windresize)       ;; thr 2
     (global-set-key (kbd "C-x k") 'switch-window-then-kill-buffer-and-window)  ;; thr 1
