@@ -17,6 +17,15 @@
 * Functions
 ** General
 #+BEGIN_SRC emacs-lisp
+  (defun split-window-prefer-horizonally (window)
+    "If there's only one window (excluding any possibly active
+           minibuffer), then split the current window horizontally."
+    (if (and (one-window-p t)
+             (not (active-minibuffer-window)))
+        (let ((split-width-threshold 1))
+          (split-window-sensibly window))
+      (split-window-sensibly window)))
+
   (defun havner/open-config-org (&optional arg)
     (interactive "P")
     (let ((config "~/.emacs.d/config.org"))
@@ -25,24 +34,18 @@
         (find-file config))))
   (global-set-key (kbd "<f12>") 'havner/open-config-org)
 
-  (defun havner/set-font (&optional arg)
+  (defun havner/set-ubuntu-font-size (&optional arg)
     (interactive "NFont size: ")
     (let ((font-to-set (concat "Ubuntu Mono-" (number-to-string arg))))
       (set-face-attribute 'default nil :font font-to-set)
       (powerline-reset)))
+  (global-set-key (kbd "<M-f12>") 'havner/set-ubuntu-font-size)
 
   (defun havner/set-font-size (&optional arg)
     (interactive "NFont size: ")
     (set-face-attribute 'default nil :height (* arg 10))
     (powerline-reset))
   (global-set-key (kbd "<C-f12>") 'havner/set-font-size)
-
-  (defun havner/match-paren (arg)
-    "Go to the matching paren if on a paren; otherwise insert %."
-    (interactive "p")
-    (cond ((looking-at "\\s\(") (forward-list 1) (backward-char 1))
-          ((looking-at "\\s\)") (forward-char 1) (backward-list 1))
-          (t (self-insert-command (or arg 1)))))
 
   (defun havner/command-line-diff (switch)
     "EDiff two files from command line"
@@ -63,7 +66,6 @@
     (interactive)
     (let ((lang (ring-ref havner/lang-ring -1)))
       (ring-insert havner/lang-ring lang)
-      ;; (message "%s" lang)
       (ispell-change-dictionary lang)))
 
   (defun havner/display-prefix (arg)
@@ -90,7 +92,7 @@
               (goto-char (point-min))
               (replace-regexp key value)))))
 
-  (defun havner/completion-at-point (orig-fun &rest args)
+  (defun havner/company-at-point (orig-fun &rest args)
     (if (eq (active-minibuffer-window)
             (selected-window))
         (apply orig-fun args)
@@ -106,9 +108,6 @@
       (error (message "Invalid expression")
              (insert (current-kill 0)))))
 #+END_SRC
-
-#+RESULTS:
-: havner/eval-and-replace
 
 ** o/k/1/2/3/0
 #+BEGIN_SRC emacs-lisp
@@ -262,6 +261,24 @@
     (powerline-reset))
 #+END_SRC
 
+** Mac
+#+BEGIN_SRC emacs-lisp
+  (defun havner/toggle-frame-fullscreen ()
+    "Toggle fullscreen state of selected frame."
+    (interactive)
+    (let ((fullscreen (frame-parameter nil 'fullscreen)))
+      (if (memq fullscreen '(fullscreen fullboth))
+          (let ((fullscreen-restore (frame-parameter nil 'fullscreen-restore)))
+            (if (memq fullscreen-restore '(maximized fullheight fullwidth))
+                (set-frame-parameter nil 'fullscreen fullscreen-restore)
+              (set-frame-parameter nil 'fullscreen nil)))
+        (set-frame-parameter nil `fullscreen 'fullscreen))))
+
+  ;; Fix the F11 key on emacs-mac-app
+  (when window-system 'mac
+        (advice-add 'toggle-frame-fullscreen :override #'havner/toggle-frame-fullscreen))
+#+END_SRC
+
 * Configuration
 ** Themes
 #+BEGIN_SRC emacs-lisp
@@ -313,7 +330,7 @@
   (add-to-list 'god-exempt-major-modes 'bs-mode)
 
   (add-hook 'overwrite-mode-hook 'god/toggle-on-overwrite)
-  (add-hook 'god-mode-enabled-hook (lambda nil (interactive)
+  (add-hook 'god-mode-enabled-hook (lambda nil
                                      (overwrite-mode 0)))
 #+END_SRC
 
@@ -341,23 +358,25 @@
   ;; (setq initial-scratch-message nil)
   (setq scroll-conservatively 101)
   (setq scroll-error-top-bottom t)
+  ;; (setq next-screen-context-lines 2)
   (setq require-final-newline t)
   (setq show-paren-delay 0.0)
   (setq show-paren-style 'mixed)
   (setq Man-width 114)
   (setq gc-cons-threshold 20000000)
   (setq calendar-week-start-day 1)
+  (setq-default truncate-lines t)
+
   ;; (setq split-width-threshold 120)
+  (setq split-window-preferred-function 'split-window-prefer-horizonally)
+
+  ;; (setq text-mode-hook
+  ;;       '(turn-on-flyspell turn-on-auto-fill text-mode-hook-identify))
+
   (when window-system
     (setq confirm-kill-emacs 'y-or-n-p))
   (when (eq window-system 'x)
     (server-start))
-  ;; (setq text-mode-hook
-  ;;       '(turn-on-flyspell turn-on-auto-fill text-mode-hook-identify))
-  (setq text-mode-hook
-        '(turn-on-auto-fill text-mode-hook-identify))
-  (setq-default truncate-lines t)
-  (setq-default show-trailing-whitespace nil)
 
   (add-hook 'before-save-hook 'delete-trailing-whitespace)
   (add-hook 'after-save-hook 'executable-make-buffer-file-executable-if-script-p)
@@ -416,8 +435,8 @@
   ;; (cua-mode t)
   (column-number-mode t)
   (line-number-mode t)
-  (show-paren-mode t)
   (size-indication-mode t)
+  (show-paren-mode t)
   (delete-selection-mode t)
   (transient-mark-mode t)
   (global-auto-revert-mode t)
@@ -452,7 +471,7 @@
   (setq-default indent-tabs-mode t)
   (setq-default tab-width 8)
 
-  (advice-add 'completion-at-point :around #'havner/completion-at-point)
+  (advice-add 'completion-at-point :around #'havner/company-at-point)
 #+END_SRC
 
 ** Undo/Redo
@@ -468,11 +487,14 @@
   (require 'point-undo)
 #+END_SRC
 
-** AVY / Switch window
+** AVY
 #+BEGIN_SRC emacs-lisp
   (setq avy-keys (append (number-sequence ?a ?z) (number-sequence ?A ?Z)))
   (setq avy-background t)
+#+END_SRC
 
+** Switch window
+#+BEGIN_SRC emacs-lisp
   (setq switch-window-increase 6)
   ;; (setq switch-window-minibuffer-shortcut ?z)
   ;; (setq switch-window-auto-resize-window t)
@@ -559,27 +581,31 @@
 ** Helm/IDO/IVY choose
 #+BEGIN_SRC emacs-lisp
   (helm-mode t)
-  ;; (ido-mode t)
   ;; (ivy-mode t)
+  ;; (ido-mode t)
 #+END_SRC
 
 ** Helm
 #+BEGIN_SRC emacs-lisp
   (when (eq helm-mode t)
     (helm-adaptive-mode t)
-    (helm-descbinds-mode t)
+    ;; (helm-descbinds-mode t)
+    ;; (setq helm-buffer-max-length 35)
     (setq helm-always-two-windows t)
     (setq helm-split-window-default-side 'right)  ;; other
     (setq helm-candidate-number-limit 1000)
     (setq helm-findutils-search-full-path t)
     (setq helm-bookmark-show-location t)
-    ;; (setq helm-buffer-max-length 35)
-    (setq helm-boring-buffer-regexp-list
-          '("\\` "
-            "\\`\\*helm"
-            "\\`\\*Echo Area"
-            "\\`\\*Minibuf"
-            "\\`\\*buffer-selection")))
+
+    (if (eq system-type 'darwin)
+        (setq helm-locate-command "/opt/local/bin/glocate %s -e -A -i --regex %s")))
+#+END_SRC
+
+** IVY
+#+BEGIN_SRC emacs-lisp
+    (when (eq ivy-mode t)
+      ;; (setq ivy-re-builders-alist '((t . ivy--regex-fuzzy)))
+      (setq ivy-use-virtual-buffers t))
 #+END_SRC
 
 ** IDO
@@ -597,12 +623,6 @@
     ;; (setq ido-enable-flex-matching t)
     ;; (setq ido-file-extensions-order '(".org" ".el" "t"))
   )
-#+END_SRC
-
-** IVY
-#+BEGIN_SRC emacs-lisp
-  (when (eq ivy-mode t)
-    (setq ivy-use-virtual-buffers t))
 #+END_SRC
 
 ** EDE/Semantic
@@ -643,8 +663,7 @@
   (setq company-c-headers-path-system '("/usr/include" "/usr/local/include" "/usr/include/python3.5m"))
   (setq company-clang-arguments '("-I/usr/include/python3.5m"))
   (add-hook 'c++-mode (lambda nil
-                        (setq company-clang-executable "/usr/bin/clang++")
-                        (setq company-clang-arguments '("-std=c++11" "-I/usr/include/python3.5m"))))
+                        (setq-local company-clang-arguments '("-std=c++11" "-I/usr/include/python3.5m"))))
   (setq company-semantic-begin-after-member-access nil)
 #+END_SRC
 
@@ -653,10 +672,22 @@
   (setq helm-gtags-use-input-at-cursor t)
 #+END_SRC
 
-** Powerline
+** Eyebrowse
+#+BEGIN_SRC emacs-lisp
+  (setq eyebrowse-keymap-prefix (kbd "C-c w"))
+  (setq eyebrowse-wrap-around t)
+  ;; (setq eyebrowse-new-workspace t)
+  (eyebrowse-mode t)
+#+END_SRC
+
+** Powerline / Spaceline
 #+BEGIN_SRC emacs-lisp
   (when window-system
-    (powerline-default-theme))
+    ;; (powerline-default-theme)
+    (require 'spaceline-config)
+    (spaceline-spacemacs-theme)
+    (spaceline-helm-mode)
+    )
 #+END_SRC
 
 ** Dired
@@ -671,6 +702,15 @@
 #+BEGIN_SRC emacs-lisp
   (setq ediff-split-window-function 'split-window-horizontally)
   (setq ediff-window-setup-function 'ediff-setup-windows-plain)
+
+  (defvar havner/ediff-last-windows nil)
+  (defun havner/store-pre-ediff-winconfig ()
+    (setq havner/ediff-last-windows (current-window-configuration)))
+  (defun havner/restore-pre-ediff-winconfig ()
+    (set-window-configuration havner/ediff-last-windows))
+
+  (add-hook 'ediff-before-setup-hook #'havner/store-pre-ediff-winconfig)
+  (add-hook 'ediff-quit-hook #'havner/restore-pre-ediff-winconfig)
 #+END_SRC
 
 ** Flycheck
@@ -742,11 +782,11 @@
 #+BEGIN_SRC emacs-lisp
   (setq process-connection-type nil)  ;; makes it possible to use xdg-open
 
-  (setq org-directory "~/Dropbox/Documents/org")
-  (setq org-agenda-files '("~/Dropbox/Documents/org/index.org"))
-  (setq org-default-notes-file "~/Dropbox/Documents/org/index.org")
+  (setq org-directory "~/Dropbox/emacs/org")
+  (setq org-agenda-files '("~/Dropbox/emacs/org/index.org"))
+  (setq org-default-notes-file "~/Dropbox/emacs/org/index.org")
+  (setq org-mobile-inbox-for-pull "~/Dropbox/emacs/org/from-mobile.org")
   (setq org-mobile-directory "~/Dropbox/Apps/MobileOrg")
-  (setq org-mobile-inbox-for-pull "~/Dropbox/Documents/org/from-mobile.org")
   (setq org-log-done 'time)
   (setq org-src-fontify-natively t)
   (setq org-src-tab-acts-natively t)
@@ -756,6 +796,7 @@
   (setq org-babel-python-command "python3")
   (setq org-confirm-babel-evaluate nil)
   (setq org-beamer-theme "Warsaw")
+  (setq org-highlight-latex-and-related '(latex))
 
   (when (eq ido-mode 'both)
       (setq org-completion-use-ido t)
@@ -767,6 +808,7 @@
       (add-hook 'org-mode-hook (lambda nil
                                  (org-bullets-mode t)))))
   (require 'ox-twbs)
+  (require 'ox-beamer)
 
   (org-babel-do-load-languages 'org-babel-load-languages '((emacs-lisp . t) (python . t) (C . t)))
 
@@ -784,6 +826,7 @@
   (add-to-list 'org-structure-template-alist
                '("at" "#+AUTHOR: ?"))
 
+  (define-key org-mode-map [(control ?,)] nil)
   (define-key org-mode-map [(control ?\')] nil)
 #+END_SRC
 
@@ -797,6 +840,7 @@
              (beginend-org-agenda-mode nil "beginend")
              (beginend-compilation-mode nil "beginend")
              (beginend-magit-status-mode nil "beginend")
+             (beginend-prodigy-mode nil "beginend")
              (org-indent-mode nil "org-indent")
              (company-mode nil "company")
              (helm-mode nil "helm-mode")
@@ -809,6 +853,58 @@
              (paredit-mode nil "paredit")
              (undo-tree-mode nil "undo-tree")
              ))
+#+END_SRC
+
+** Engine mode
+#+BEGIN_SRC emacs-lisp
+  (require 'engine-mode)
+
+  (defengine duckduckgo
+    "https://duckduckgo.com/?q=%s"
+    :keybinding "d")
+  (defengine google
+    "http://www.google.com/search?ie=utf-8&oe=utf-8&q=%s"
+    :keybinding "g")
+  (defengine stack-overflow
+    "https://stackoverflow.com/search?q=%s"
+    :keybinding "s")
+  (defengine wikipedia
+    "http://www.wikipedia.org/search-redirect.php?language=en&go=Go&search=%s"
+    :keybinding "w")
+  (defengine youtube
+    "https://www.youtube.com/results?search_query=%s"
+      :keybinding "y")
+  (defengine github
+    "https://github.com/search?ref=simplesearch&q=%s")
+  (defengine rfcs
+    "http://pretty-rfc.herokuapp.com/search?q=%s")
+  (defengine wiktionary
+    "https://www.wikipedia.org/search-redirect.php?family=wiktionary&language=en&go=Go&search=%s")
+
+  (engine/set-keymap-prefix (kbd "C-c s"))
+  ;; (setq engine/browser-function 'eww-browse-url)
+
+  (engine-mode t)
+#+END_SRC
+
+** Wanderlust
+#+BEGIN_SRC emacs-lisp
+  ;; (require 'w3m)
+  ;; (require 'mime-w3m)
+  ;; (setq w3m-key-binding 'info)
+#+END_SRC
+
+** elfeed
+#+BEGIN_SRC emacs-lisp
+  (setq elfeed-search-filter "@12-months-ago +unread")
+  (setq elfeed-db-directory "~/Dropbox/emacs/elfeed")
+  (elfeed-org)
+#+END_SRC
+
+** Zone
+#+BEGIN_SRC emacs-lisp
+  (require 'zone)
+  (zone-when-idle 300)
 #+END_SRC
 
 * Programming modes
@@ -843,8 +939,8 @@
     (flycheck-mode t)
     (setq-local company-backends
                 '(company-c-headers
-                  ;; company-clang
-                  company-semantic
+                  company-clang
+                  ;; company-semantic
                   company-keywords
                   company-files
                   company-ispell))
@@ -855,8 +951,7 @@
           (t
            (ggtags-mode t))))
 
-  (add-hook 'c-mode-hook 'c-devel-hook)
-  (add-hook 'c++-mode-hook 'c-devel-hook)
+  (add-hook 'c-mode-common-hook 'c-devel-hook)
 #+END_SRC
 
 ** Python
@@ -999,46 +1094,60 @@ forward/backward:
 
   (global-set-key (kbd "C-x j") 'semantic-ia-fast-jump)
   (global-set-key (kbd "C-x C-j") 'dired-jump)
+  (global-set-key (kbd "C-x p") 'other-frame)
+  (global-set-key (kbd "C-x C-p") 'make-frame)
   (global-set-key (kbd "C-x t") 'toggle-truncate-lines)
-  (global-set-key (kbd "C-c f") 'other-frame)
-  (global-set-key (kbd "C-c C-f") 'make-frame)
-  (global-set-key (kbd "C-c w") 'whitespace-mode)
+  (global-set-key (kbd "C-x w") 'whitespace-mode)
+  (global-set-key (kbd "C-x C-b") 'bs-show)
+
   (global-set-key (kbd "C-c l") 'org-store-link)
-  (global-set-key (kbd "C-c s") 'org-capture)
+  (global-set-key (kbd "C-c c") 'org-capture)
   (global-set-key (kbd "C-c a") 'org-agenda)
+  (define-key isearch-mode-map (kbd "C-l") 'recenter-top-bottom)
+
+  (global-set-key (kbd "C-c i") 'ispell-word)
+  (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
+  (global-set-key (kbd "<C-f9>") 'locate)
+  (global-set-key (kbd "<C-f10>") 'recentf-open-files)
+  (global-set-key (kbd "C-.") 'imenu)
 
   (global-set-key (kbd "<f5>") 'compile)
-  ;; (global-set-key (kbd "<C-f5>") 'ede-compile-project)
+  ;; (global-set-key (kbd "<S-f5>") 'ede-compile-project)
 
   (eval-after-load 'cc-mode
-    '(progn
-       (define-key c-mode-map (kbd "C-c o") 'ff-find-other-file)
-       (define-key c++-mode-map (kbd "C-c o") 'ff-find-other-file)))
+    '(define-key c-mode-base-map (kbd "C-c o") 'ff-find-other-file))
 #+END_SRC
 
 ** External modules
 #+BEGIN_SRC emacs-lisp
-  (global-set-key (kbd "C-x C-o") 'switch-window-then-swap-buffer)             ;; thr 2
-  (global-set-key (kbd "C-x o") 'havner/switch-window-or-windresize)           ;; thr 2
-  (global-set-key (kbd "C-x C-k") 'switch-window-then-kill-buffer-and-window)  ;; thr 1
-  (global-set-key (kbd "C-x k") 'switch-window-then-kill-buffer)               ;; thr 1
-  (global-set-key (kbd "C-x 1") 'switch-window-then-maximize)                  ;; thr 2
-  (global-set-key (kbd "C-x 2") 'switch-window-then-split-below)               ;; thr 1
-  (global-set-key (kbd "C-x 3") 'switch-window-then-split-right)               ;; thr 1
-  (global-set-key (kbd "C-x 0") 'switch-window-then-delete)                    ;; thr 2
+  (global-set-key (kbd "C-x 1") 'switch-window-then-maximize)                  ;; thr 2+
+  (global-set-key (kbd "C-x 2") 'switch-window-then-split-below)               ;; thr 1+
+  (global-set-key (kbd "C-x 3") 'switch-window-then-split-right)               ;; thr 1+
+  (global-set-key (kbd "C-x 0") 'switch-window-then-delete)                    ;; thr 2+
+  (global-set-key (kbd "C-x C-o") 'switch-window-then-swap-buffer)             ;; thr 2+
+  (global-set-key (kbd "C-x o") 'havner/switch-window-or-windresize)           ;; thr 2+
+  (global-set-key (kbd "C-x C-k") 'switch-window-then-kill-buffer-and-window)  ;; thr 1+
+  (global-set-key (kbd "C-x k") 'switch-window-then-kill-buffer)               ;; thr 1+
 
-  (global-set-key (kbd "C-x C-b") 'bs-show)
+  (define-key eyebrowse-mode-map (kbd "C-c w p") 'eyebrowse-prev-window-config)
+  (define-key eyebrowse-mode-map (kbd "C-c w n") 'eyebrowse-next-window-config)
+  (define-key eyebrowse-mode-map (kbd "C-c w k") 'eyebrowse-close-window-config)
+  (define-key eyebrowse-mode-map (kbd "C-c w m") 'eyebrowse-rename-window-config)
+
   (global-set-key (kbd "C-x C-F") 'havner/find-file-as-sudo)
-  (global-set-key (kbd "C-%") 'havner/match-paren)
+  (global-set-key (kbd "C-c o") 'windresize)
+  (global-set-key (kbd "C-c n") 'bm-show-all)
   (global-set-key (kbd "C-c h") 'highlight-thing-mode)
+  (global-set-key (kbd "C-c v") 'volume)
+  (global-set-key (kbd "<C-f5>") 'projectile-compile-project)
+
   (global-set-key (kbd "C-c m") 'magit-status)
   (global-set-key (kbd "C-c C-m") 'magit-log-head)
   (global-set-key (kbd "C-c g") 'magit-dispatch-popup)
   (global-set-key (kbd "C-c C-g") 'magit-file-popup)
-  (global-set-key (kbd "C-c t") 'sane-term)
-  (global-set-key (kbd "C-c C-t") 'sane-term-create)
+  (global-set-key (kbd "C-c t") 'sane-term-create)
   (global-set-key (kbd "C-`") 'sane-term)
-  (global-set-key (kbd "<C-f5>") 'projectile-compile-project)
+  (global-set-key (kbd "C-,") 'imenu-anywhere)
 
   (global-set-key (kbd "C-'") 'avy-goto-word-1)
   (global-set-key (kbd "C-;") 'avy-pop-mark)
@@ -1055,10 +1164,16 @@ forward/backward:
     '(progn
        (define-key company-template-field-map (kbd "<tab>") nil)
        (define-key company-template-field-map '[?\t] nil)
-       (define-key company-template-field-map (kbd "M-n") 'company-template-forward-field)
+       (define-key company-template-field-map (kbd "M-f") 'company-template-forward-field)
        (define-key company-template-nav-map (kbd "<tab>") nil)
        (define-key company-template-nav-map '[?\t] nil)
-       (define-key company-template-nav-map (kbd "M-n") 'company-template-forward-field)))
+       (define-key company-template-nav-map (kbd "M-f") 'company-template-forward-field)))
+
+  (eval-after-load 'flycheck
+    '(define-key flycheck-mode-map (kbd "<f4>") 'flycheck-list-errors))
+
+  (eval-after-load 'projectile
+    '(define-key projectile-mode-map (kbd "<f10>") 'projectile-commander))
 #+END_SRC
 
 ** Helm/IDO/IVY cond
@@ -1067,66 +1182,66 @@ forward/backward:
          (global-set-key (kbd "M-x") 'helm-M-x)
          (global-set-key (kbd "C-h a") 'helm-apropos)
          (global-set-key (kbd "C-h m") 'helm-describe-modes)
+         (global-set-key (kbd "C-h b") 'helm-descbinds)
          (global-set-key (kbd "M-y") 'helm-show-kill-ring)
          (global-set-key (kbd "C-x C-f") 'helm-find-files)
          (global-set-key (kbd "<f1>") 'helm-resume)
          (global-set-key (kbd "<f8>") 'helm-occur)
          (global-set-key (kbd "<f9>") 'helm-find)
          (global-set-key (kbd "<C-f9>") 'helm-locate)
+         (global-set-key (kbd "<C-f10>") 'helm-recentf)
          (global-set-key (kbd "C-x b") 'helm-buffers-list)
          (global-set-key (kbd "C-c i") 'helm-flyspell-correct)
          (global-set-key (kbd "C-c b") 'helm-bookmarks)
          (global-set-key (kbd "C-c n") 'helm-bm)
          (global-set-key (kbd "C-.") 'helm-imenu)
          (global-set-key (kbd "C-,") 'helm-imenu-in-all-buffers))
-        ((eq ido-mode 'both)
-         (global-set-key (kbd "M-x") 'smex)
-         (global-set-key (kbd "M-X") 'smex-major-mode-commands)
-         (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
-         (global-set-key (kbd "C-c n") 'bm-show-all)
-         (global-set-key (kbd "C-.") 'ido-imenu-anywhere)
-         (global-set-key (kbd "C-,") 'ido-imenu-anywhere))
         ((eq ivy-mode t)
+         (global-set-key (kbd "M-x") 'counsel-M-x)
+         (global-set-key (kbd "C-h a") 'counsel-apropos)
+         (global-set-key (kbd "C-h f") 'counsel-describe-function)
+         (global-set-key (kbd "C-h v") 'counsel-describe-variable)
+         (global-set-key (kbd "C-h b") 'counsel-descbinds)
+         (global-set-key (kbd "C-x C-f") 'counsel-find-file)
          (global-set-key (kbd "C-s") 'swiper)
          (global-set-key (kbd "<f1>") 'ivy-resume)
-         (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
-         (global-set-key (kbd "C-c n") 'bm-show-all)
-         (global-set-key (kbd "C-.") 'ivy-imenu-anywhere)
+         (global-set-key (kbd "<C-f9>") 'counsel-locate)
+         (global-set-key (kbd "<C-f10>") 'counsel-recentf)
+         (global-set-key (kbd "C-.") 'counsel-imenu)
          (global-set-key (kbd "C-,") 'ivy-imenu-anywhere)
-         ;; (global-set-key (kbd "M-x") 'counsel-M-x)
-         ;; (global-set-key (kbd "C-x C-f") 'counsel-find-file)
-         ;; (global-set-key (kbd "<f1> f") 'counsel-describe-function)
-         ;; (global-set-key (kbd "<f1> v") 'counsel-describe-variable)
          ;; (global-set-key (kbd "<f1> l") 'counsel-find-library)
          ;; (global-set-key (kbd "<f2> i") 'counsel-info-lookup-symbol)
          ;; (global-set-key (kbd "<f2> u") 'counsel-unicode-char)
          ;; (global-set-key (kbd "C-c g") 'counsel-git)
          ;; (global-set-key (kbd "C-c j") 'counsel-git-grep)
          ;; (global-set-key (kbd "C-c k") 'counsel-ag)
-         ;; (global-set-key (kbd "C-x l") 'counsel-locate)
          ;; (global-set-key (kbd "C-S-o") 'counsel-rhythmbox)
-         ;; (define-key minibuffer-local-map (kbd "C-r") 'counsel-minibuffer-history)
+         (define-key minibuffer-local-map (kbd "C-r") 'counsel-minibuffer-history)
          )
-        (t
-         (global-set-key (kbd "C-c b") 'bookmark-bmenu-list)
-         (global-set-key (kbd "C-c n") 'bm-show-all)
-         (global-set-key (kbd "C-.") 'imenu-anywhere)
-         (global-set-key (kbd "C-,") 'imenu-anywhere)))
+        ((eq ido-mode 'both)
+         (global-set-key (kbd "M-x") 'smex)
+         (global-set-key (kbd "M-X") 'smex-major-mode-commands)
+         (global-set-key (kbd "C-.") 'ido-imenu)
+         (global-set-key (kbd "C-,") 'ido-imenu-anywhere)))
+
+  (if (eq helm-mode t)
+      (define-key text-mode-map (kbd "C-M-i") 'helm-ispell))
 
   (eval-after-load 'company
-    '(when (eq helm-mode t)
-       (define-key company-mode-map (kbd "<f3>") 'helm-company)
-       (define-key company-active-map (kbd "<f3>") 'helm-company)))
+    '(cond ((eq helm-mode t)
+            (define-key company-mode-map (kbd "<f3>") 'helm-company)
+            (define-key company-active-map (kbd "<f3>") 'helm-company))
+           ((eq ivy-mode t)
+            (define-key company-mode-map (kbd "<f3>") 'counsel-company)
+            (define-key company-active-map (kbd "<f3>") 'counsel-company))))
 
   (eval-after-load 'flycheck
     '(if (eq helm-mode t)
-         (define-key flycheck-mode-map (kbd "<f4>") 'helm-flycheck)
-       (define-key flycheck-mode-map (kbd "<f4>") 'flycheck-list-errors)))
+         (define-key flycheck-mode-map (kbd "<f4>") 'helm-flycheck)))
 
   (eval-after-load 'projectile
     '(if (eq helm-mode t)
-         (define-key projectile-mode-map (kbd "<f10>") 'helm-projectile)
-       (define-key projectile-mode-map (kbd "<f10>") 'projectile-commander)))
+         (define-key projectile-mode-map (kbd "<f10>") 'helm-projectile)))
 
   ;;;;; regular gtags assign keys automatically
 
@@ -1145,36 +1260,73 @@ forward/backward:
 #+BEGIN_SRC emacs-lisp
   (global-set-key (kbd "<escape>") 'god-local-mode)
   (define-key god-local-mode-map (kbd "i") 'god-local-mode)
+  (define-key god-local-mode-map (kbd "<escape> <escape> <escape>") 'keyboard-escape-quit)
+  ;; (define-key god-local-mode-map (kbd "<escape>") 'keyboard-escape-quit)
 
   (define-key isearch-mode-map (kbd "<escape>") 'god-mode-isearch-activate)
   (define-key god-mode-isearch-map (kbd "<escape>") 'god-mode-isearch-disable)
   (define-key god-mode-isearch-map (kbd "'") 'avy-isearch)
   (define-key god-mode-isearch-map (kbd "l") 'recenter-top-bottom)
 
+  (define-key org-mode-map (kbd "C-c C-'") 'org-edit-special)
+  (define-key org-src-mode-map (kbd "C-c C-'") 'org-edit-src-exit)
+
+  (global-set-key (kbd "C-x C-1") 'switch-window-then-maximize)              ;; thr 2
+  (global-set-key (kbd "C-x C-2") 'switch-window-then-split-below)           ;; thr 1
+  (global-set-key (kbd "C-x C-3") 'switch-window-then-split-right)           ;; thr 1
+  (global-set-key (kbd "C-x C-0") 'switch-window-then-delete)                ;; thr 2
+
   (when (bound-and-true-p god-global-mode)
     (global-set-key (kbd "C-x o") 'switch-window-then-swap-buffer)             ;; thr 2
     (global-set-key (kbd "C-x C-o") 'havner/switch-window-or-windresize)       ;; thr 2
     (global-set-key (kbd "C-x k") 'switch-window-then-kill-buffer-and-window)  ;; thr 1
     (global-set-key (kbd "C-x C-k") 'switch-window-then-kill-buffer)           ;; thr 1
-    (global-set-key (kbd "C-x C-1") 'switch-window-then-maximize)              ;; thr 2
-    (global-set-key (kbd "C-x C-2") 'switch-window-then-split-below)           ;; thr 1
-    (global-set-key (kbd "C-x C-3") 'switch-window-then-split-right)           ;; thr 1
-    (global-set-key (kbd "C-x C-0") 'switch-window-then-delete)                ;; thr 2
 
     (global-set-key (kbd "C-x b") 'bs-show)
     (global-set-key (kbd "C-x C-b") 'helm-buffers-list)
-    (global-set-key (kbd "C-c f") 'make-frame)
-    (global-set-key (kbd "C-c C-f") 'other-frame))
+    (global-set-key (kbd "C-x p") 'make-frame)
+    (global-set-key (kbd "C-x C-p") 'other-frame)
+
+    ;; FIXME: (define prefix)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-p") 'eyebrowse-prev-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-n") 'eyebrowse-next-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-k") 'eyebrowse-close-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-m") 'eyebrowse-rename-window-config)
+
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-<") 'eyebrowse-prev-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C->") 'eyebrowse-next-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-'") 'eyebrowse-last-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-\"") 'eyebrowse-close-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-,") 'eyebrowse-rename-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-.") 'eyebrowse-switch-to-window-config)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-0") 'eyebrowse-switch-to-window-config-0)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-1") 'eyebrowse-switch-to-window-config-1)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-2") 'eyebrowse-switch-to-window-config-2)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-3") 'eyebrowse-switch-to-window-config-3)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-4") 'eyebrowse-switch-to-window-config-4)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-5") 'eyebrowse-switch-to-window-config-5)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-6") 'eyebrowse-switch-to-window-config-6)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-7") 'eyebrowse-switch-to-window-config-7)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-8") 'eyebrowse-switch-to-window-config-8)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-9") 'eyebrowse-switch-to-window-config-9)
+    ;; (define-key eyebrowse-mode-map (kbd "C-c C-w C-c") 'eyebrowse-create-window-config)
+    )
 #+END_SRC
 
-* TO BE REMOVED
-** IDO
-1. crm-custom
-2. flx-ido
-3. ido-completing-read+
-4. ido-vertical-mode
-5. smex
+* Notes
+** C-x available keys:
+- c
+- g
+- j (semantic)
+- p (frame)
+- t (truncate)
+- w (whitespace) (TODO: hi lock mode)
+- x
+- y
 
-** Obsolete
-1. ggtags
-2. imenu-anywhere
+** C-x C- available keys:
+- a
+- g
+- h
+- j
+- y
