@@ -1,3 +1,4 @@
+.DS_Store
 .python-environments
 BACKUP
 auto-save-list
@@ -5,10 +6,6 @@ elpa
 helpa
 bookmarks
 config.el
-helm-adaptive-history
-ido.last
 projectile-bookmarks.eld
-smex-items
 recentf
-.DS_Store
 elfeed.org
