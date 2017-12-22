@@ -290,7 +290,7 @@
   (defun havner/delete-trailing-whitespace ()
     (unless (eq mode-name "Diff")
       (delete-trailing-whitespace)))
-  (add-hook 'before-save-hook 'havner/delete-trailing-whitespace)
+  (add-hook 'before-save-hook #'havner/delete-trailing-whitespace)
 #+END_SRC
 
 ** Minor modes
@@ -350,20 +350,6 @@
          (gpm-mouse-mode t)))
 #+END_SRC
 
-** Dashboard
-#+BEGIN_SRC emacs-lisp
-  ;; (setq dashboard-banner-logo-title "Abandon hope all ye who enter here")
-  ;; ;; (setq dashboard-startup-banner "~/path/to/image.png")
-  ;; (setq dashboard-items '(
-  ;;                         (agenda . 5)
-  ;;                         (bookmarks . 5)
-  ;;                         (recents  . 5)
-  ;;                         (projects . 5)
-  ;;                         (registers . 5)
-  ;;                         ))
-  ;; (dashboard-setup-startup-hook)
-#+END_SRC
-
 ** GOD mode
 #+BEGIN_SRC emacs-lisp
   ;; (god-mode)
@@ -382,12 +368,12 @@
         (god-local-mode-pause)
       (god-local-mode-resume)))
 
-  (add-hook 'god-mode-enabled-hook 'god/update-cursor)
-  (add-hook 'god-mode-disabled-hook 'god/update-cursor)
+  (add-hook 'god-mode-enabled-hook #'god/update-cursor)
+  (add-hook 'god-mode-disabled-hook #'god/update-cursor)
   (add-to-list 'god-exempt-major-modes 'term-mode)
   (add-to-list 'god-exempt-major-modes 'bs-mode)
 
-  (add-hook 'overwrite-mode-hook 'god/toggle-on-overwrite)
+  (add-hook 'overwrite-mode-hook #'god/toggle-on-overwrite)
   (add-hook 'god-mode-enabled-hook (lambda nil
                                      (overwrite-mode 0)))
 #+END_SRC
@@ -509,7 +495,6 @@
   (helm-mode t)
 
   (when helm-mode
-    ;; (helm-adaptive-mode t)
     (setq helm-always-two-windows t)
     (setq helm-split-window-default-side 'right)
     (setq helm-candidate-number-limit 1000)
@@ -517,9 +502,7 @@
     (setq helm-bookmark-show-location t)
 
     (if (eq system-type 'darwin)
-        (setq helm-locate-command "/opt/local/bin/glocate %s -e -A -i --regex %s"))
-
-    (setq helm-gtags-use-input-at-cursor t))
+        (setq helm-locate-command "/opt/local/bin/glocate %s -e -A -i --regex %s")))
 #+END_SRC
 
 ** Projectile
@@ -535,72 +518,34 @@
     (helm-projectile-on))
 #+END_SRC
 
-** EDE/Semantic
-#+BEGIN_SRC emacs-lisp
-  (setq ede-project-placeholder-cache-file nil)
-  (setq project-linux-compile-project-command "gmake -j4 -C %s") ; EDE compilation command for kernel
-
-  (setq semantic-c-dependency-system-include-path '("/usr/include" "/usr/local/include" "/usr/include/python3.5m"))
-  (setq semantic-default-submodes '(
-                                    global-semantic-idle-scheduler-mode
-                                    global-semanticdb-minor-mode
-                                    global-semantic-idle-summary-mode
-                                    ;; global-semantic-idle-completions-mode
-                                    ))
-  (setq semanticdb-default-save-directory "~/.semanticdb")
-
-  ;; (global-ede-mode t)
-  ;; (semantic-mode t)
-#+END_SRC
-
 ** Company
 #+BEGIN_SRC emacs-lisp
   (global-company-mode t)
 
   (setq company-backends
-        '(company-jedi
-          company-elisp
+        '(company-elisp
           company-files
           company-ispell))
 
   (setq company-idle-delay 0.5)
   (setq company-minimum-prefix-length 3)
-
-  (setq company-clang-insert-arguments t)
-  (setq company-semantic-insert-arguments t)
-  (setq company-gtags-insert-arguments nil)
-
-  (setq company-c-headers-path-system '("/usr/include" "/usr/local/include" "/usr/include/python3.5m"))
-  (setq company-clang-arguments '("-I/usr/include/python3.5m"))
-
-  (defun havner/c++-set-company-clang-cpp11 ()
-    (message "C++mode")
-    (setq-local company-clang-arguments '("-std=c++11" "-I/usr/include/python3.5m")))
-  (add-hook 'c++-mode-hook 'havner/c++-set-company-clang-cpp11)
-
-  (setq company-semantic-begin-after-member-access nil)
 #+END_SRC
 
 ** Flycheck
 #+BEGIN_SRC emacs-lisp
-  (setq-default flycheck-disabled-checkers '(c/c++-gcc python-flake8 python-pylint))
+  (setq-default flycheck-disabled-checkers '(c/c++-gcc c/c++-clang python-flake8 python-pylint))
+#+END_SRC
 
-  (setq flycheck-clang-include-path '("/usr/include/python3.5m"))
-  (setq flycheck-cppcheck-include-path '("/usr/include/python3.5m"))
-
+** TODO Flycheck-python
+#+BEGIN_SRC emacs-lisp
   (setq flycheck-python-flake8-executable "flake8-3")
   (setq flycheck-python-pylint-executable "python3-pylint")
 
-  (defun havner/c++-set-flycheck-cpp11 ()
-    (setq-local flycheck-c/c++-clang-executable "/usr/bin/clang++")
-    (setq-local flycheck-clang-args "-std=c++11"))
-  (add-hook 'c++-mode-hook 'havner/c++-set-flycheck-cpp11)
-
   (require 'flycheck-pycheckers)
   (setq flycheck-pycheckers-checkers '(pylint pep8 flake8))
-  (setq flycheck-pycheckers-max-line-length 120)
-  (with-eval-after-load 'flycheck
-    (add-hook 'flycheck-mode-hook #'flycheck-pycheckers-setup))
+  (setq flycheck-pycheckers-max-line-length 80)
+  (eval-after-load 'flycheck
+    '(add-hook 'flycheck-mode-hook 'flycheck-pycheckers-setup))
 #+END_SRC
 
 ** Eyebrowse
@@ -645,7 +590,7 @@
 
 ** Magit
 #+BEGIN_SRC emacs-lisp
-  (setq magit-repository-directories '(("~/devel/" . 2)))
+  (setq magit-repository-directories '(("~/devel/" . 2) ("~/.emacs.d/" . 1) ("~/Documents/" . 1)))
 
   (eval-after-load 'magit-popup
     '(magit-define-popup-switch
@@ -663,12 +608,6 @@
 #+BEGIN_SRC emacs-lisp
   (setq gdb-many-windows t)
   (setq gdb-show-main t)
-#+END_SRC
-
-** PDF
-#+BEGIN_SRC emacs-lisp
-  (when (eq window-system 'x)
-      (pdf-tools-install))
 #+END_SRC
 
 ** ORG
@@ -747,7 +686,6 @@
              (auto-revert-mode nil "autorevert")
              (auto-fill-function nil "simple")
              (abbrev-mode nil "abbrev")
-             (helm-gtags-mode nil "helm-gtags")
              (paredit-mode nil "paredit")
              (undo-tree-mode nil "undo-tree")
              ))
@@ -798,19 +736,46 @@
   (zone-when-idle 300)
 #+END_SRC
 
-** Evil
+* Configuration + ext tools
 #+BEGIN_SRC emacs-lisp
-  ;; (evil-mode t)
-
-  ;; (evil-set-initial-state 'term-mode 'emacs)
-  ;; (evil-set-initial-state 'gomoku-mode 'emacs)
-
-  ;; (setq evil-want-C-i-jump nil)
+  (setq system-config-directory (concat "~/.emacs.d/bin-" system-configuration))
+  (setq system-config-directory-bin (concat system-config-directory "/bin"))
+  (unless (file-directory-p system-config-directory-bin)
+    (mkdir system-config-directory-bin t))
 #+END_SRC
 
-** Games
+** PDF
 #+BEGIN_SRC emacs-lisp
-  (setq dun-log-file "~/Dropbox/emacs/dunnet.score")
+  (setq pdf-info-epdfinfo-program
+        (concat system-config-directory-bin "/epdfinfo"))
+
+  (when window-system
+    (pdf-tools-install))
+#+END_SRC
+
+** RTags
+#+BEGIN_SRC emacs-lisp
+  (setq rtags-path system-config-directory)
+
+  (when helm-mode
+    (setq rtags-display-result-backend 'helm))
+
+  ;;; company-rtags
+  ;; (require 'company-rtags)
+  ;; (setq rtags-autostart-diagnostics t)
+  ;; (setq rtags-completions-enabled t)
+
+  (add-hook 'c-mode-common-hook 'rtags-start-process-unless-running)
+#+END_SRC
+
+** Irony
+#+BEGIN_SRC emacs-lisp
+  (setq irony-server-install-prefix system-config-directory)
+
+  (setq company-dabbrev-code-ignore-case 'smart)
+
+  (add-hook 'irony-mode-hook 'irony-cdb-autosetup-compile-options)
+  (add-hook 'flycheck-mode-hook 'flycheck-irony-setup)
 #+END_SRC
 
 * Programming modes
@@ -821,7 +786,7 @@
     (subword-mode t)
     (prettify-symbols-mode t)
     (setq show-trailing-whitespace t))
-  (add-hook 'prog-mode-hook 'prog-devel-hook-f)
+  (add-hook 'prog-mode-hook #'prog-devel-hook-f)
 #+END_SRC
 
 ** C
@@ -832,8 +797,6 @@
   (setq c-insert-tab-function 'company-complete)
 
   (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))      ; *.h in c++-mode
-  (setq cc-search-directories            ; for ff-find-other-file (on #include)
-        '("." "/usr/include" "/usr/local/include/*" "/usr/include/python3.5m"))
 
   (setq c-default-style
         '((c-mode . "linux")
@@ -845,18 +808,16 @@
   (defun c-devel-hook-f()
     (c-set-offset 'innamespace 0)
     (c-set-offset 'inextern-lang 0)
+    (c-set-offset 'inline-open 0)
+    (irony-mode t)
     (flycheck-mode t)
     (setq-local company-backends
-                '(company-c-headers
-                  company-clang
+                '((company-irony-c-headers company-irony)
+                  ;; company-rtags
                   company-keywords
                   company-files
-                  company-ispell))
-    (if helm-mode
-        (helm-gtags-mode t)
-      (ggtags-mode t)))
-
-  (add-hook 'c-mode-common-hook 'c-devel-hook-f)
+                  company-ispell)))
+  (add-hook 'c-mode-common-hook #'c-devel-hook-f)
 #+END_SRC
 
 ** Python
@@ -867,8 +828,13 @@
   (defun python-devel-hook-f ()
     (flycheck-mode t)
     (setq tab-width 4)
-    (setq indent-tabs-mode nil))
-  (add-hook 'python-mode-hook 'python-devel-hook-f)
+    (setq indent-tabs-mode nil)
+    (setq-local company-backends
+                '(company-jedi
+                  company-keywords
+                  company-files
+                  company-ispell)))
+  (add-hook 'python-mode-hook #'python-devel-hook-f)
 #+END_SRC
 
 ** LUA
@@ -877,7 +843,7 @@
 
   (defun lua-devel-hook-f ()
     (setq tab-width 4))
-  (add-hook 'lua-mode-hook 'lua-devel-hook-f)
+  (add-hook 'lua-mode-hook #'lua-devel-hook-f)
 #+END_SRC
 
 ** Lisps
@@ -893,7 +859,7 @@
           lisp-mode-hook
           scheme-mode-hook))
   (dolist (hook lisps-mode-hooks)
-    (add-hook hook 'lisps-devel-hook-f))
+    (add-hook hook #'lisps-devel-hook-f))
 #+END_SRC
 
 ** shell
@@ -903,7 +869,7 @@
 
   (defun sh-devel-hook-f ()
     (setq tab-width 4))
-  (add-hook 'sh-mode-hook 'sh-devel-hook-f)
+  (add-hook 'sh-mode-hook #'sh-devel-hook-f)
 #+END_SRC
 
 ** NXML
@@ -913,13 +879,7 @@
 
   (defun nxml-devel-hook-f ()
     (setq tab-width 2))
-  (add-hook 'nxml-mode-hook 'nxml-devel-hook-f)
-#+END_SRC
-
-* Projects
-#+BEGIN_SRC emacs-lisp
-  (if (file-exists-p "~/.projects.el")
-      (load-file "~/.projects.el"))
+  (add-hook 'nxml-mode-hook #'nxml-devel-hook-f)
 #+END_SRC
 
 * Shortcuts
@@ -1022,10 +982,7 @@ forward/backward:
   (global-set-key (kbd "C-c c") 'org-capture)
   (global-set-key (kbd "C-c a") 'org-agenda)
 
-  (eval-after-load 'cc-mode
-    '(if semantic-mode
-         (define-key c-mode-base-map (kbd "C-x j") 'semantic-ia-fast-jump)
-       (define-key c-mode-base-map (kbd "C-x j") 'ff-find-other-file)))
+  (define-key dired-mode-map (kbd "<tab>") 'other-window)
 #+END_SRC
 
 ** External modules
@@ -1071,6 +1028,14 @@ forward/backward:
   (global-set-key (kbd "<left-fringe> <mouse-5>") 'bm-next-mouse)
   (global-set-key (kbd "<left-fringe> <mouse-4>") 'bm-previous-mouse)
   (global-set-key (kbd "<left-fringe> <mouse-1>") 'bm-toggle-mouse)
+
+  (eval-after-load 'cc-mode
+    '(progn
+       (rtags-enable-standard-keybindings c-mode-base-map)
+       (define-key c-mode-base-map (kbd "C-x j") 'rtags-find-symbol-at-point)
+       (define-key c-mode-base-map (kbd "M-.") 'rtags-find-references-at-point)
+       (define-key c-mode-base-map (kbd "M-,") 'rtags-location-stack-back)
+       (define-key c-mode-base-map (kbd "C-.") 'rtags-imenu)))
 
   (eval-after-load 'company
     '(progn
@@ -1129,13 +1094,6 @@ forward/backward:
   (eval-after-load 'projectile
     '(when helm-mode
        (define-key projectile-mode-map (kbd "<f10>") 'helm-projectile)))
-
-  ;;;;; regular gtags assign keys automatically
-
-  (eval-after-load 'helm-gtags
-    '(when helm-mode
-       (define-key helm-gtags-mode-map (kbd "M-.") 'helm-gtags-dwim)
-       (define-key helm-gtags-mode-map (kbd "M-,") 'helm-gtags-pop-stack)))
 #+END_SRC
 
 ** GOD mode
@@ -1176,6 +1134,58 @@ forward/backward:
 #+BEGIN_SRC emacs-lisp
   (org-agenda nil "n")
   (delete-other-windows)
+#+END_SRC
+
+* Unused
+** Evil
+#+BEGIN_SRC emacs-lisp
+  ;; (evil-mode t)
+
+  ;; (evil-set-initial-state 'term-mode 'emacs)
+  ;; (evil-set-initial-state 'gomoku-mode 'emacs)
+
+  ;; (setq evil-want-C-i-jump nil)
+#+END_SRC
+
+** Dashboard
+#+BEGIN_SRC emacs-lisp
+  ;; (setq dashboard-banner-logo-title "Abandon hope all ye who enter here")
+  ;; ;; (setq dashboard-startup-banner "~/path/to/image.png")
+  ;; (setq dashboard-items '(
+  ;;                         (agenda . 5)
+  ;;                         (bookmarks . 5)
+  ;;                         (recents  . 5)
+  ;;                         (projects . 5)
+  ;;                         (registers . 5)
+  ;;                         ))
+  ;; (dashboard-setup-startup-hook)
+#+END_SRC
+
+** EDE/Semantic
+#+BEGIN_SRC emacs-lisp
+  ;; (setq ede-project-placeholder-cache-file nil)
+  ;; (setq project-linux-compile-project-command "gmake -j4 -C %s") ; EDE compilation command for kernel
+
+  ;; (setq semantic-c-dependency-system-include-path '("/usr/include" "/usr/local/include" "/usr/include/python3.5m"))
+  ;; (setq semantic-default-submodes '(
+  ;;                                   global-semantic-idle-scheduler-mode
+  ;;                                   global-semanticdb-minor-mode
+  ;;                                   global-semantic-idle-summary-mode
+  ;;                                   ;; global-semantic-idle-completions-mode
+  ;;                                   ))
+  ;; (setq semanticdb-default-save-directory "~/.semanticdb")
+
+  ;; (global-ede-mode t)
+  ;; (semantic-mode t)
+
+  ;; (setq ede-projects-list-file "~/.emacs-ede.el")
+  ;; (if (file-exists-p ede-projects-list-file)
+  ;;     (load-file ede-projects-list-file))
+#+END_SRC
+
+** Games
+#+BEGIN_SRC emacs-lisp
+  ;; (setq dun-log-file "~/Dropbox/emacs/dunnet.score")
 #+END_SRC
 
 * Notes

@@ -14,7 +14,7 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
    (quote
-    (roguel-ike elfeed-org volume engine-mode evil eyebrowse spaceline highlight-thing helm avy pdf-tools god-mode undo-tree switch-window dashboard sane-term paradox helm-bm delight csv-mode flycheck-pycheckers minesweeper beginend fireplace helm-flyspell helm-flycheck helm-gtags helm-projectile helm-company lorem-ipsum powerline htmlize ox-twbs flycheck paredit-menu rainbow-delimiters paredit diff-hl helm-describe-modes helm-descbinds nlinum-hl org-bullets company company-jedi windresize sokoban smart-tabs-mode rpm-spec-mode page-break-lines redo+ point-undo nlinum magit lua-mode ggtags company-c-headers buffer-move bm 2048-game))))
+    (company-rtags cmake-mode company-irony-c-headers flycheck-irony company-irony irony helm-rtags rtags roguel-ike elfeed-org volume engine-mode evil eyebrowse spaceline highlight-thing helm avy pdf-tools god-mode undo-tree switch-window sane-term paradox helm-bm delight csv-mode flycheck-pycheckers minesweeper beginend fireplace helm-flyspell helm-flycheck helm-projectile helm-company lorem-ipsum powerline htmlize ox-twbs flycheck paredit-menu rainbow-delimiters paredit diff-hl helm-describe-modes helm-descbinds nlinum-hl org-bullets company company-jedi windresize sokoban smart-tabs-mode rpm-spec-mode page-break-lines redo+ point-undo nlinum magit lua-mode buffer-move bm 2048-game))))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
