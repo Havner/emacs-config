@@ -1,11 +1,5 @@
-.DS_Store
 .python-environments
-BACKUP
-auto-save-list
 elpa
 helpa
-bookmarks
 config.el
-projectile-bookmarks.eld
-recentf
 elfeed.org

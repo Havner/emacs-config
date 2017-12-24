@@ -269,6 +269,8 @@
   (setq calendar-week-start-day 1)
   (setq split-window-preferred-function 'split-window-prefer-horizonally)
   (setq-default truncate-lines t)
+  (setq bookmark-default-file "~/.emacs-bookmarks.el")
+  (setq recentf-save-file "~/.emacs-recentf.el")
 
   (when window-system
     (setq confirm-kill-emacs 'y-or-n-p))
@@ -398,6 +400,8 @@
 
   (setq backup-directory-alist
         `((".*" . ,temporary-file-directory)))
+  (setq auto-save-list-file-prefix
+        (concat temporary-file-directory "/auto-save-list/.saves-"))
   ;; (setq auto-save-file-name-transforms
   ;;       `((".*" ,temporary-file-directory t)))
 #+END_SRC
@@ -449,8 +453,9 @@
   (setq bs-default-configuration "havner")
 #+END_SRC
 
-** Bookmarks
+** BM
 #+BEGIN_SRC emacs-lisp
+  (setq bm-repository-file "~/.emacs-bm.el")
   (setq bm-restore-repository-on-load t)
   (setq bm-annotate-on-create nil)
   (setq-default bm-buffer-persistence t)
@@ -521,6 +526,7 @@
 #+BEGIN_SRC emacs-lisp
   (projectile-mode t)
 
+  (setq projectile-known-projects-file "~/.emacs-projectile.el")
   (setq projectile-mode-line '(:eval (format " P[%s]" (projectile-project-name))))
   (setq frame-title-format '((:eval (projectile-project-name))))
 
