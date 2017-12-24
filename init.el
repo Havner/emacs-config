@@ -14,7 +14,7 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
    (quote
-    (company-rtags cmake-mode company-irony-c-headers flycheck-irony company-irony irony helm-rtags rtags roguel-ike elfeed-org volume engine-mode evil eyebrowse spaceline highlight-thing helm avy pdf-tools god-mode undo-tree switch-window sane-term paradox helm-bm delight csv-mode flycheck-pycheckers minesweeper beginend fireplace helm-flyspell helm-flycheck helm-projectile helm-company lorem-ipsum powerline htmlize ox-twbs flycheck paredit-menu rainbow-delimiters paredit diff-hl helm-describe-modes helm-descbinds nlinum-hl org-bullets company company-jedi windresize sokoban smart-tabs-mode rpm-spec-mode page-break-lines redo+ point-undo nlinum magit lua-mode buffer-move bm 2048-game))))
+    (ggtags counsel-gtags helm-gtags slime-company anzu switch-window ivy-xref yasnippet lsp-ui helm-xref company-lsp cquery symbol-overlay ripgrep ag helm-rg ivy-rich imenu-anywhere flyspell-correct-ivy counsel-projectile counsel swiper zone-nyan irony-eldoc vdiff calfw-org calfw ztree ssh-config-mode tramp-term spotify memory-usage helm-proc helm-ag projectile malyon geiser org-tree-slide expand-region cmake-mode company-irony-c-headers flycheck-irony company-irony irony elfeed-org volume engine-mode eyebrowse spaceline helm avy pdf-tools undo-tree sane-term paradox helm-bm delight csv-mode minesweeper beginend helm-flyspell helm-flycheck helm-projectile helm-company lorem-ipsum htmlize ox-twbs flycheck paredit-menu rainbow-delimiters paredit diff-hl helm-describe-modes helm-descbinds org-bullets company company-jedi windresize sokoban smart-tabs-mode rpm-spec-mode page-break-lines magit lua-mode bm))))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.

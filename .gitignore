@@ -1,4 +1,4 @@
-.python-environments
+bin-*
 elpa
 helpa
 config.el
