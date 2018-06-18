@@ -389,26 +389,6 @@
 
   (advice-add 'flycheck-list-errors
               :after #'flycheck-maybe-select-error-list)
-
-  ;;;;; missing rtags-mode for bindings
-
-  (defvar rtags-minor-mode-map
-    (let ((map (make-sparse-keymap)))
-      (define-key map (kbd "M-,") #'rtags-location-stack-back)
-      (define-key map (kbd "M-.") #'rtags-find-symbol-at-point)
-      (define-key map (kbd "M-/") #'rtags-find-references-at-point)
-      (define-key map (kbd "C-M-,") #'rtags-display-summary)
-      (define-key map (kbd "C-M-.") #'rtags-find-symbol)
-      (define-key map (kbd "C-M-/") #'rtags-find-references)
-      (define-key map (kbd "C-.") #'rtags-imenu)
-      map))
-  (rtags-enable-standard-keybindings rtags-minor-mode-map)
-  (define-minor-mode rtags-minor-mode
-    "Minor mode for C, C++ and Objective-C, powered by libclang."
-    nil
-    " RTags"
-    rtags-minor-mode-map
-    :group 'rtags)
 #+END_SRC
 
 * Configuration
@@ -993,185 +973,42 @@
   (setq system-config-directory-bin (concat system-config-directory "/bin"))
   (unless (file-directory-p system-config-directory-bin)
     (mkdir system-config-directory-bin t))
-
-  (setq havner/cc-base 'lsp)              ; lsp, rtags
-  (setq havner/cc-flycheck 'lsp)          ; lsp, rtags, irony
-  (setq havner/cc-company 'lsp)           ; lsp, rtags, irony
-  (setq havner/python-base 'lsp)          ; lsp
-  (setq havner/python-flycheck 'lsp)      ; lsp, pycheck
-  (setq havner/python-company 'lsp)       ; lsp, jedi
 #+END_SRC
 
 ** LSP
 #+BEGIN_SRC emacs-lisp
-  ;;; generic
-  (setq company-lsp-cache-candidates nil)
-  (setq lsp-ui-sideline-show-symbol nil)
-  (setq lsp-highlight-symbol-at-point nil)
-  ;; (setq lsp-enable-eldoc nil)
+  ;; (setq lsp-highlight-symbol-at-point nil)
+  ;; (setq lsp-ui-doc-enable nil)
   ;; (setq lsp-ui-sideline-enable nil)
+  ;; (setq lsp-ui-sideline-delay 3)
+  ;; (setq lsp-ui-sideline-show-code-actions nil)
+  ;; (setq lsp-ui-sideline-show-flycheck nil)
+  ;; (setq lsp-ui-sideline-show-hover nil)
+  ;; (setq lsp-ui-sideline-show-symbol nil)
+  ;; (setq lsp-ui-flycheck-live-reporting nil)
+
+  (setq company-lsp-cache-candidates nil)
   (require 'lsp-ui)
   (require 'lsp-imenu)
-  (add-hook 'lsp-mode-hook #'lsp-ui-mode)
-  (add-hook 'lsp-mode-hook #'lsp-enable-imenu)
-
-  ;;; company
-  (require 'company-lsp)
-
-  ;;; flycheck
-  (setq lsp-ui-flycheck-enable nil)  ; don't autostart, handle manually
   (require 'lsp-ui-flycheck)
-  (add-to-list 'flycheck-checkers 'lsp-ui)
-  (add-to-list-global 'flycheck-disabled-checkers 'lsp-ui t)
+  (require 'company-lsp)
+  (defun havner/lsp-mode-devel-f ()
+    (lsp-ui-mode)
+    (lsp-enable-imenu)
+    (lsp-ui-flycheck-enable 1))
+  (add-hook 'lsp-mode-hook #'havner/lsp-mode-devel-f)
 
-  ;;; runtime helpers
   (defun havner/lsp-find-project-root ()
     (if (bound-and-true-p projectile-mode)
         (let ((projectile-require-project-root nil))
           (projectile-project-root))
       default-directory))
-  (defun havner/lsp-ui-flycheck-setup ()
-    (add-hook 'lsp-after-diagnostics-hook 'lsp-ui-flycheck--report nil t)
-    (setq-local flycheck-check-syntax-automatically nil))
-#+END_SRC
-
-** CC-Irony
-#+BEGIN_SRC emacs-lisp
-  ;;; generic
-  (setq irony-server-install-prefix system-config-directory)
-  (setq company-irony-ignore-case 'smart)
-  (with-eval-after-load 'irony
-    (add-hook 'irony-mode-hook #'irony-cdb-autosetup-compile-options)
-    (add-hook 'irony-mode-hook #'irony-eldoc))
-
-  ;;; flycheck
-  (flycheck-irony-setup)
-  (add-to-list-global 'flycheck-disabled-checkers 'irony t)
-
-  ;;; runtime
-  (defun havner/cc-irony-setup ()
-    (if (or (eq havner/cc-company 'irony)
-            (eq havner/cc-flycheck 'irony))
-        (irony-mode t)))
-
-  (with-eval-after-load 'cc-vars
-    (add-hook 'c-mode-common-hook #'havner/cc-irony-setup))
-#+END_SRC
-
-** CC-RTags
-#+BEGIN_SRC emacs-lisp
-  ;;; generic
-  (setq rtags-path system-config-directory)
-  (setq rtags-use-bookmarks nil)
-  (add-hook 'rtags-minor-mode-hook #'rtags-start-process-unless-running)
-  (cl-case havner/completing
-    ('helm
-     (setq rtags-display-result-backend 'helm))
-    ('ivy
-     (setq rtags-display-result-backend 'ivy))) ; TODO: doesn't work
-
-  ;;; company
-  (require 'company-rtags)
-
-  ;;; flycheck
-  (require 'flycheck-rtags)
-  (add-to-list-global 'flycheck-disabled-checkers 'rtags t)
-
-  ;;; runtime
-  (defun havner/cc-rtags-setup ()
-    (when (eq havner/cc-base 'rtags)
-      (rtags-minor-mode t))
-    (when (eq havner/cc-company 'rtags)
-      (setq-local rtags-completions-enabled t))
-    (when (eq havner/cc-flycheck 'rtags)
-      (setq-local rtags-autostart-diagnostics t)
-      (setq-local flycheck-highlighting-mode nil) ;; RTags creates more accurate overlays.
-      (setq-local flycheck-check-syntax-automatically nil)))
-
-  (with-eval-after-load 'cc-vars
-    (add-hook 'c-mode-common-hook #'havner/cc-rtags-setup))
 #+END_SRC
 
 ** CC-LSP/cquery
 #+BEGIN_SRC emacs-lisp
-  ;;; generic
   (setq cquery-executable (concat system-config-directory-bin "/cquery"))
   (setq cquery-extra-init-params '(:emitInactiveRegions t :completion (:detailedLabel t)))
-  (setq havner/use-cquery-package t)
-
-  ;;; no cquery package test (lsp-cquery-custom-enable)
-  (defvar cquery-custom-handlers '(("$cquery/progress" . (lambda (_w _p)))
-                                   ("$cquery/setInactiveRegions" . (lambda (_w _p)))
-                                   ("$cquery/publishSemanticHighlighting" . (lambda (_w _p)))))
-  (defvar cquery-custom-cache-dir ".cquery_cached_index/")
-  (defun cquery-custom-make-renderer (mode)
-    `(lambda (str)
-       (with-temp-buffer
-         (delay-mode-hooks (,(intern (format "%s-mode" mode))))
-         (insert str)
-         (font-lock-ensure)
-         (buffer-string))))
-  (defun cquery-custom-initialize-client (client)
-    (dolist (p cquery-custom-handlers)
-      (lsp-client-on-notification client (car p) (cdr p)))
-    (lsp-provide-marked-string-renderer client "c" (cquery-custom-make-renderer "c"))
-    (lsp-provide-marked-string-renderer client "cpp" (cquery-custom-make-renderer "c++"))
-    (lsp-provide-marked-string-renderer client "objectivec" (cquery-custom-make-renderer "objc")))
-  (defun cquery-custom-get-init-params (workspace)
-    `(:cacheDirectory ,(file-name-as-directory
-                        (expand-file-name cquery-custom-cache-dir (lsp--workspace-root workspace)))
-                      ,@cquery-extra-init-params))
-  (lsp-define-stdio-client lsp-cquery-custom
-                           "cpp"
-                           #'havner/lsp-find-project-root
-                           `(,cquery-executable)
-                           :initialize #'cquery-custom-initialize-client
-                           :extra-init-params #'cquery-custom-get-init-params)
-
-  ;;; flycheck
-  (lsp-ui-flycheck-add-mode 'c-mode)
-  (lsp-ui-flycheck-add-mode 'c++-mode)
-
-  ;;; runtime
-  (defun havner/cc-cquery-setup ()
-    (when (eq havner/cc-base 'lsp)
-      (if havner/use-cquery-package
-          (lsp-cquery-enable)
-        (lsp-cquery-custom-enable)))
-    (when (eq havner/cc-flycheck 'lsp)
-      (havner/lsp-ui-flycheck-setup)))
-
-  (with-eval-after-load 'cc-vars
-    (add-hook 'c-mode-common-hook #'havner/cc-cquery-setup))
-#+END_SRC
-
-** Python-Jedi
-#+BEGIN_SRC emacs-lisp
-  ;;; generic
-  (setq python-environment-directory "~/.python-environments")
-  (with-eval-after-load 'python-environment
-    (setq python-environment-virtualenv
-          (append '("virtualenv-3") (delete "virtualenv" python-environment-virtualenv))))
-
-  ;;; runtime
-  (defun havner/python-jedi-setup ()
-    (when (eq havner/python-company 'jedi)
-      (jedi:setup)))
-
-  (with-eval-after-load 'python
-    (add-hook 'python-mode-hook #'havner/python-jedi-setup))
-#+END_SRC
-
-** Python-pycheckers
-#+BEGIN_SRC emacs-lisp
-  ;;; generic
-  (setq flycheck-pycheckers-checkers '(pylint pep8 flake8 pyflakes))
-  (setq flycheck-pycheckers-max-line-length 80)
-
-  ;;; flycheck
-  (require 'flycheck-pycheckers)
-  (flycheck-pycheckers-setup)
-  (add-to-list-global 'flycheck-disabled-checkers 'python-pycheckers t)
 #+END_SRC
 
 ** Python-LSP/pyls
@@ -1181,19 +1018,6 @@
                            "python"
                            #'havner/lsp-find-project-root
                            '("pyls"))
-
-  ;;; flycheck
-  (lsp-ui-flycheck-add-mode 'python-mode)
-
-  ;;; runtime
-  (defun havner/python-pyls-setup ()
-    (when (eq havner/python-base 'lsp)
-      (lsp-pyls-enable))
-    (when (eq havner/python-flycheck 'lsp)
-      (havner/lsp-ui-flycheck-setup)))
-
-  (with-eval-after-load 'python
-    (add-hook 'python-mode-hook #'havner/python-pyls-setup))
 #+END_SRC
 
 ** PDF-tools
@@ -1254,31 +1078,13 @@
     (yas-minor-mode t)
 
     (with-real-file
+     (lsp-cquery-enable)
      (setq-local company-backends
-                 '(company-keywords
+                 '(company-lsp
+                   company-keywords
                    company-files
                    company-ispell))
-     (cl-case havner/cc-company
-       ('irony
-        (add-to-list 'company-backends '(company-irony-c-headers company-irony)))
-       ('rtags
-        (add-to-list 'company-backends 'company-rtags))
-       ('lsp
-        (add-to-list 'company-backends 'company-lsp))
-       (t
-        (add-to-list 'company-backends 'company-clang)))
-
-     (flycheck-mode t)
-     (cl-case havner/cc-flycheck
-       ('irony
-        (flycheck-disable-checker 'irony t)
-        (flycheck-select-checker 'irony))
-       ('rtags
-        (flycheck-disable-checker 'rtags t)
-        (flycheck-select-checker 'rtags))
-       ('lsp
-        (flycheck-disable-checker 'lsp-ui t)
-        (flycheck-select-checker 'lsp-ui)))))
+     (flycheck-mode t)))
 
   (with-eval-after-load 'cc-vars
     (add-hook 'c-mode-common-hook #'cc-devel-hook-f t))
@@ -1295,24 +1101,13 @@
     (setq indent-tabs-mode nil)
 
     (with-real-file
+     (lsp-pyls-enable)
      (setq-local company-backends
-                 '(company-keywords
+                 '(company-lsp
+                   company-keywords
                    company-files
                    company-ispell))
-     (cl-case havner/python-company
-       ('jedi
-        (add-to-list 'company-backends 'company-jedi))
-       ('lsp
-        (add-to-list 'company-backends 'company-lsp)))
-
-     (flycheck-mode t)
-     (cl-case havner/python-flycheck
-       ('pycheck
-        (flycheck-disable-checker 'python-pycheckers t)
-        (flycheck-select-checker 'python-pycheckers))
-       ('lsp
-        (flycheck-disable-checker 'lsp-ui t)
-        (flycheck-select-checker 'lsp-ui)))))
+     (flycheck-mode t)))
 
   (with-eval-after-load 'python
     (add-hook 'python-mode-hook #'python-devel-hook-f t))
