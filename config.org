@@ -287,6 +287,8 @@ Replaces things like smart quotes with their more sane cousins."
 
 (+def-theme-function zenburn              "Zenburn"              'zenburn-theme)
 
+(+def-theme-function base16-hopscotch     "Base16 Hopscotch"     'base16-hopscotch-theme)
+(+def-theme-function base16-zos           "Base16 Zos")
 (+def-theme-function doom-Iosvkem         "DOOM Iosvkem"         'doom-themes)
 (+def-theme-function doom-badger          "DOOM Badger"          'doom-themes)
 (+def-theme-function doom-city-lights     "DOOM City Lights"     'doom-themes)
@@ -728,6 +730,11 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
 (setq doom-themes-enable-italic nil) ; if nil, italics is universally disabled
 #+end_src
 
+*** Base16
+#+begin_src emacs-lisp
+(setq base16-theme-256-color-source 'colors)
+#+end_src
+
 *** LOAD
 #+begin_src emacs-lisp
 (defvar +system-color-depth 'default)
@@ -738,13 +745,17 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
        (setq +system-color-depth '24bit))
       ((equal (getenv "TERM") "xterm-24bit")
        (setq +system-color-depth '24bit))
+      ((equal (getenv "TERM") "xterm-ghostty")
+       (setq +system-color-depth '24bit))
       ((equal (getenv "TERM") "xterm-256color")
        (setq +system-color-depth '256color))
       ((equal (getenv "TERM") "screen-256color")
        (setq +system-color-depth '256color)))
 
 (pcase +system-color-depth
-  ('24bit    (+doom-moonlight))
+  ;; ('24bit    (+doom-moonlight))
+  ;; ('24bit    (+doom-zenburn))
+  ('24bit    (+base16-hopscotch))
   ('256color (+zenburn)))
 
 ;; get rid of background on transparent terminals
@@ -876,7 +887,7 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
 #+begin_src emacs-lisp
 (setq tab-always-indent 'complete)
 (setq backward-delete-char-untabify-method nil)
-(setq-default indent-tabs-mode t)
+(setq-default indent-tabs-mode nil)
 (setq-default tab-width 4)
 #+end_src
 
@@ -914,7 +925,7 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
 (setq switch-window-minibuffer-shortcut ?x)
 (setq switch-window-background t)
 (setq switch-window-mvborder-increment 2)
-(setq switch-window-multiple-frames t)
+(setq switch-window-multiple-frames nil)
 #+end_src
 
 ** window-jump
@@ -1244,6 +1255,7 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
 (setq lsp-ui-sideline-show-code-actions t)
 
 (setq lsp-ui-sideline-delay 1)
+(setq lsp-enable-links nil)
 
 (with-eval-after-load 'lsp-mode
   (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]out\\'")
@@ -1259,7 +1271,7 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
   (setq cursor-type (if (or god-local-mode buffer-read-only) 'box 'bar))
   (hl-line-mode (if (or god-local-mode buffer-read-only) 0 t))
   (when (and overwrite-mode god-local-mode) (overwrite-mode 0)))
-(add-hook 'post-command-hook #'+god-mode-update)
+;; (add-hook 'post-command-hook #'+god-mode-update)
 
 ;;; enablers and disablers
 (with-eval-after-load 'god-mode
@@ -1272,7 +1284,7 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
   ;;; broken for now
   (define-key god-local-mode-map (kbd "C-h k") nil))
 
-(god-mode-all 1)
+;; (god-mode-all 1)
 #+end_src
 
 ** leader-key
@@ -1295,7 +1307,7 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
   (leader-key-do-map 'tar-mode-map 'tar-mode)
   (leader-key-do-map 'image-mode-map 'image-mode))
 
-(leader-key-mode t)
+;; (leader-key-mode t)
 #+end_src
 
 ** dashboard
@@ -1453,7 +1465,9 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
   (subword-mode t)
   (rainbow-delimiters-mode t)
   (yas-minor-mode t)
-  (flycheck-mode t))
+  (flycheck-mode t)
+  (when (not (derived-mode-p 'lisp-data-mode))
+    (electric-pair-local-mode t)))
 (add-hook 'prog-mode-hook #'+prog-devel-hook-f t)
 
 ;;; Should be default but for some reason some package breaks it
@@ -1479,6 +1493,8 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
         (other . "gnu")))
 
 ;; (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))      ; *.h in c++-mode
+(with-eval-after-load 'lsp-clangd
+  (add-to-list 'lsp-clients-clangd-args "--log=verbose" t))
 
 (defun +cc-devel-hook-f ()
   (c-set-offset 'innamespace 0)
@@ -1793,6 +1809,7 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
 (global-set-key (kbd "C-h t") #'describe-theme)                                     ;; help-with-tutorial
 
 (global-set-key (kbd "C-x b") #'consult-buffer)                                     ;; switch-to-buffer
+(global-set-key (kbd "C-x i") #'ibuffer)                                            ;; insert-file
 (global-set-key (kbd "C-x o") #'switch-window)                                      ;; other-window
 (global-set-key (kbd "C-x k") #'+switch-window-then-kill-current-buffer)            ;; kill-buffer
 (global-set-key (kbd "C-x 0") #'+switch-window-then-delete-window)                  ;; delete-window
@@ -2104,13 +2121,22 @@ If REQUIRE-WRITEABLE is non-nil the file has to be writeable."
 ** Old bindings, fallback
 #+begin_src emacs-lisp
 (global-set-key (kbd "<f5>") #'projectile-compile-project)
-(global-set-key (kbd "<f6>") #'projectile-compile-project)
-;; (global-set-key (kbd "<f6>") #'+consult-find)
-;; (global-set-key (kbd "<f7>") #'+consult-ripgrep)
-;; (global-set-key (kbd "<f8>") #'+consult-line)
-(global-set-key (kbd "<f7>") #'consult-projectile)  ;; -switch-to-buffer
+(global-set-key (kbd "<f6>") #'+consult-find)
+(global-set-key (kbd "<f7>") #'+consult-ripgrep)
+(global-set-key (kbd "<f8>") #'+consult-line)
 (global-set-key (kbd "<f9>") #'consult-projectile)  ;; -switch-to-buffer
-;; (global-set-key (kbd "<f10>") #'consult-flycheck)
+(global-set-key (kbd "<f10>") #'consult-flycheck)
+
+(global-set-key (kbd "C-x m") #'magit-status)                     ;; compose-mail
+(global-set-key (kbd "C-c m") #'magit-log-head)                   ;; nil
+(global-set-key (kbd "C-x g") #'magit-file-dispatch)              ;;
+(global-set-key (kbd "C-c g") #'magit-dispatch)                   ;;
+
+(global-set-key (kbd "C-x <left>") #'window-jump-left)
+(global-set-key (kbd "C-x <right>") #'window-jump-right)
+(global-set-key (kbd "C-x <up>") #'window-jump-up)
+(global-set-key (kbd "C-x <down>") #'window-jump-down)
+
 #+end_src
 
 * Notes
